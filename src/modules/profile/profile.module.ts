@@ -17,5 +17,6 @@ import { ServicesModule } from '../services/services.module';
   ],
   controllers: [ProfileController],
   providers: [ProfileService, Reflector, CloudinaryService],
+  exports: [ProfileService],
 })
 export class ProfileModule {}

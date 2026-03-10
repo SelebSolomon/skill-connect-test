@@ -7,6 +7,8 @@ import { UsersModule } from '../users/users.module';
 import { CloudinaryService } from 'src/shared/cloudinary/cloudinary.service';
 import { ServicesModule } from '../services/services.module';
 import { BidsModule } from '../bids/bids.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { ProfileModule } from '../profile/profile.module';
 
 @Module({
   imports: [
@@ -14,6 +16,8 @@ import { BidsModule } from '../bids/bids.module';
     UsersModule,
     ServicesModule,
     forwardRef(() => BidsModule),
+    NotificationsModule,
+    ProfileModule,
   ],
   controllers: [JobsController],
   providers: [JobsService, CloudinaryService],

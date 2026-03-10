@@ -1,4 +1,15 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateReviewDto } from './create-review.dto';
+import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
-export class UpdateReviewDto extends PartialType(CreateReviewDto) {}
+// Admin-only: only rating and comment can be updated after the fact
+export class UpdateReviewDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  rating?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  comment?: string;
+}

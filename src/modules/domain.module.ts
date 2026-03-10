@@ -17,6 +17,8 @@ import { BidsModule } from './bids/bids.module';
 import { ConversationsModule } from './conversations/conversations.module';
 import { MessagesModule } from './messages/messages.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 // import authConstants from 'src/common/constants/auth.constants';
 
@@ -59,6 +61,8 @@ import { ReviewsModule } from './reviews/reviews.module';
     ConversationsModule,
     MessagesModule,
     ReviewsModule,
+    NotificationsModule,
+    TransactionsModule,
 
   ],
   controllers: [],

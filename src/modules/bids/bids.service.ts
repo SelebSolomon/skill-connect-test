@@ -16,6 +16,8 @@ import { Status } from '../jobs/enums/status.enum';
 import { BidStatus } from './enums/bid-status-enum';
 import { JobsService } from '../jobs/jobs.service';
 import path from 'path';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/dto/create-notification.dto';
 
 @Injectable()
 export class BidsService {
@@ -23,6 +25,7 @@ export class BidsService {
     @InjectModel(Bid.name) private readonly bidModel: Model<BidDocument>,
     @Inject(forwardRef(() => JobsService))
     private jobService: JobsService,
+    private notificationsService: NotificationsService,
   ) {}
 
   async findBidsForJob(jobId: string) {
@@ -64,7 +67,20 @@ export class BidsService {
         estimatedDuration,
         message,
       });
-      return await bid.save();
+      const saved = await bid.save();
+
+      // Notify the client that a new bid arrived (fire-and-forget)
+      this.notificationsService
+        .send({
+          userId: job.clientId.toString(),
+          type: NotificationType.Bid,
+          title: 'New Bid Received',
+          message: `A provider placed a bid of $${proposedPrice} on your job: "${job.title}"`,
+          link: `/jobs/${jobId}/bids`,
+        })
+        .catch(() => null);
+
+      return saved;
     } catch (error) {
       // ✅ DUPLICATE BID
       if (error?.code === 11000) {

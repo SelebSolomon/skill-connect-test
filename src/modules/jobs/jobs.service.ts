@@ -23,6 +23,9 @@ import { UsersService } from '../users/users.service';
 import { RoleName } from 'src/common/enums/roles-enums';
 import { AssignProviderDto } from './dto/assign-provider-id.dto';
 import { BidsService } from '../bids/bids.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/dto/create-notification.dto';
+import { ProfileService } from '../profile/profile.service';
 
 @Injectable()
 export class JobsService {
@@ -34,6 +37,8 @@ export class JobsService {
     private userService: UsersService,
     @Inject(forwardRef(() => BidsService))
     private bidsService: BidsService,
+    private notificationsService: NotificationsService,
+    private profileService: ProfileService,
   ) {}
 
   async findById(id: string) {
@@ -96,7 +101,24 @@ export class JobsService {
       imageUrl,
       imagePublicId,
     };
-    return this.jobModel.create(result);
+    const job = await this.jobModel.create(result);
+
+    // Notify providers who offer this service (fire-and-forget)
+    this.profileService
+      .findProvidersByService(createJobDto.serviceId)
+      .then((providerIds) => {
+        // Exclude the client themselves in case they are somehow in the list
+        const targets = providerIds.filter((id) => id !== loggedInClientId);
+        return this.notificationsService.sendToMany(targets, {
+          type: NotificationType.Job,
+          title: 'New Job Posted',
+          message: `A new job matching your services: "${createJobDto.title}"`,
+          link: `/jobs/${job._id}`,
+        });
+      })
+      .catch(() => null);
+
+    return job;
   }
 
   async getJobs(query: JobQueryDto) {
@@ -300,6 +322,17 @@ export class JobsService {
       throw new BadRequestException('Job already assigned or not found');
     }
 
+    // Notify the assigned provider (fire-and-forget)
+    this.notificationsService
+      .send({
+        userId: providerId,
+        type: NotificationType.Job,
+        title: 'You Were Assigned to a Job',
+        message: `You have been assigned to: "${job.title}"`,
+        link: `/jobs/${job._id}`,
+      })
+      .catch(() => null);
+
     return job;
   }
 
@@ -348,6 +381,17 @@ export class JobsService {
       .select(
         '-milestones -imagePublicId -isDeleted -deletedBy -deleteAt -createdAt -updatedAt -unassignedAt -assignedDate ',
       );
+
+    // Notify the unassigned provider (fire-and-forget)
+    this.notificationsService
+      .send({
+        userId: job.providerId.toString(),
+        type: NotificationType.Job,
+        title: 'You Were Unassigned from a Job',
+        message: `You have been removed from: "${job.title}". Reason: ${reason}`,
+        link: `/jobs/${job._id}`,
+      })
+      .catch(() => null);
 
     return updatedJob;
   }

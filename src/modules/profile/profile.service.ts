@@ -422,7 +422,32 @@ private logger = new Logger(ProfileService.name);
     return profile;
   }
 
-async queryProfiles(queryDto: QueryProfilesDto) {
+  /**
+   * Used by NotificationsService trigger in JobsService:
+   * returns the userId of providers who list this service in their profile.
+   * Capped at 50 to avoid flooding.
+   */
+  async findProvidersByService(serviceId: string): Promise<string[]> {
+    const profiles = await this.profileModel
+      .find({ services: serviceId })
+      .select('userId')
+      .limit(50)
+      .lean();
+    return profiles.map((p) => p.userId.toString());
+  }
+
+  /**
+   * Called by ReviewsService after recalculating ratings from the Review collection.
+   */
+  async updateProviderRating(
+    userId: string,
+    ratingAvg: number,
+    ratingCount: number,
+  ): Promise<void> {
+    await this.profileModel.findOneAndUpdate({ userId }, { ratingAvg, ratingCount });
+  }
+
+  async queryProfiles(queryDto: QueryProfilesDto) {
   const {
     category,
     serviceId,
