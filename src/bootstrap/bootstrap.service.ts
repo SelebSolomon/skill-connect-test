@@ -29,8 +29,8 @@ export class BootstrapService implements OnModuleInit {
           email: process.env.FIRST_ADMIN_EMAIL || 'admin@example.com',
           password: hashedPassword,
           role: adminRole._id,
-          phone: "888-333-444-444",
-          roleName: "admin",
+          phone: '888-333-444-444',
+          roleName: 'admin',
           isActive: true,
           emailVerified: true,
         });

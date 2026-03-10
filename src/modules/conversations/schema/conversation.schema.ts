@@ -49,7 +49,6 @@ export class Conversation {
 export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 
 // Indexes
-ConversationSchema.index({ 'participants.userId': 1 });
 ConversationSchema.index({ jobId: 1 });
 
 ConversationSchema.index(

@@ -40,7 +40,6 @@ export class JobsController {
     @Req() req: Request & { user: { sub: string } },
     @UploadedFile() file: Express.Multer.File,
   ) {
-    console.log('Received file:', file);
 
     if (!file) {
       throw new BadRequestException('Photo file is required');
@@ -63,7 +62,6 @@ export class JobsController {
     @Req() req: Request & { user: { sub: string } },
     @Query() query: JobQueryDto,
   ) {
-    console.log('Fetching jobs for user ID:', req.user.sub);
     return this.jobsService.myJobs(req.user.sub, query);
   }
 

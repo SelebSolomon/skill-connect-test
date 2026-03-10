@@ -7,12 +7,10 @@ export const signAccessToken = async (
   userId: string,
   role: string,
 ): Promise<string> => {
-
   const payload: JwtPayload = {
     sub: userId,
     role,
   };
-
 
   return jwtService.signAsync(payload);
 };
@@ -22,7 +20,6 @@ export const signRefreshToken = async (
   userId: string,
   configService: ConfigService,
 ): Promise<string> => {
-
   const payload = {
     sub: userId,
     type: 'refresh',

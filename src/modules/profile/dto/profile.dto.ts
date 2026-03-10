@@ -56,7 +56,6 @@ export class CreateProfileDto {
   @IsString({ each: true })
   categories?: string[];
 
-  
   @IsOptional()
   @IsString()
   @Transform(({ value }) => value?.trim())

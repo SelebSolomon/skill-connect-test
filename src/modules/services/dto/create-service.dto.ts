@@ -1,7 +1,11 @@
 // dto/service.dto.ts
-import { 
-  IsString, IsOptional, IsArray, IsBoolean, 
-  MinLength, MaxLength 
+import {
+  IsString,
+  IsOptional,
+  IsArray,
+  IsBoolean,
+  MinLength,
+  MaxLength,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 

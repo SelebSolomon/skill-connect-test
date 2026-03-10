@@ -10,8 +10,6 @@ import {
 } from 'class-validator';
 
 export class UpdateBidDto {
-
-
   @IsNumber()
   @Min(0)
   @Type(() => Number)

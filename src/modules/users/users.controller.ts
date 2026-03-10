@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Get, Patch, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Patch,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { Request } from 'express';
 import { JwtGuards } from 'src/core/guards/jwt-guards';
@@ -23,14 +31,9 @@ export class UsersController {
     return await this.usersService.updateMe(updateMeDto, req.user.sub);
   }
 
-
-    @UseGuards(JwtGuards)
+  @UseGuards(JwtGuards)
   @Delete('delete-me')
-  async deleteMe(
-    @Req() req: Request & { user: { sub: string } },
-  ) {
-    return await this.usersService.deleteMe( req.user.sub);
+  async deleteMe(@Req() req: Request & { user: { sub: string } }) {
+    return await this.usersService.deleteMe(req.user.sub);
   }
-
-  
 }

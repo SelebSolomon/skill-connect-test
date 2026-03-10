@@ -6,7 +6,7 @@ export class EmailContents {
   /**
    * Password Reset Email Content
    */
-  static passwordReset(resetLink: string ): string {
+  static passwordReset(resetLink: string): string {
     return EmailTemplate.generate({
       heading: 'Password Reset Request',
       greeting: `Hello`,

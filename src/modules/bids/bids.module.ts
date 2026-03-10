@@ -7,10 +7,9 @@ import { Bid, BidSchema } from './schema/bid.schema';
 import { JobsModule } from '../jobs/jobs.module';
 
 @Module({
-  
   imports: [
     MongooseModule.forFeature([{ name: Bid.name, schema: BidSchema }]),
-   forwardRef(() => JobsModule), 
+    forwardRef(() => JobsModule),
     UsersModule,
   ],
   controllers: [BidsController],

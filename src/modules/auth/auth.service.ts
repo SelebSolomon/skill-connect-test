@@ -52,24 +52,10 @@ export class AuthService {
     // Step 2: Hash password
     const hashedPassword = await bcrypt.hash(createUserDto.password, 12);
 
-    // // Step 3: Get default customer role
-    let role: RoleDocument;
-
-    // 1️⃣ No role provided → assign Guest
-    if (!createUserDto.role) {
-      role = await this.roleService.findByNameOrFail(RoleName.Guest);
-    }
-    // 2️⃣ Role provided → validate against DB
-    else {
-      role = await this.roleService.findByIdOrFail(createUserDto.role);
-
-      // 3️⃣ Block Admin role
-      if (role.name === RoleName.Admin) {
-        throw new BadRequestException(
-          'You are not allowed to assign Admin role',
-        );
-      }
-    }
+    // Step 3: Resolve role from the chosen roleName (client | provider)
+    const role: RoleDocument = await this.roleService.findByNameOrFail(
+      createUserDto.roleName,
+    );
 
     const verificationToken = generateVerificationToken();
 
@@ -334,7 +320,6 @@ export class AuthService {
       updatePasswordDto.oldPassword,
       user.password,
     );
-    console.log(user.password);
 
     if (!comparePassword) {
       throw new UnauthorizedException('Incorrect password Old password');

@@ -133,11 +133,8 @@ export class JobsService {
 
   async myJobs(loggedInUser: string, query: JobQueryDto) {
     const userFilter = {
-      deleted: false,
-      $or: [
-        { clientId: new Types.ObjectId(loggedInUser) },
-        { providerId: new Types.ObjectId(loggedInUser) },
-      ],
+      isDeleted: false, // ✅ Correct field name
+      $or: [{ clientId: loggedInUser }, { providerId: loggedInUser }],
     };
 
     return new QueryBuilder(this.jobModel, query, {
@@ -151,7 +148,7 @@ export class JobsService {
       .sort()
       .fields()
       .paginate()
-      .exec(userFilter); // <-- pass a base filter that always applies
+      .exec(userFilter);
   }
 
   async getJobById(id: string) {
@@ -317,8 +314,6 @@ export class JobsService {
       providerId: { $exists: true },
     });
 
-    console.log(job);
-
     if (!job) {
       throw new NotFoundException('Job not found');
     }
@@ -377,7 +372,6 @@ export class JobsService {
         'You are not allowed to view bids for this job',
       );
     }
-
 
     return this.bidsService.findBidsForJob(job._id.toString());
   }

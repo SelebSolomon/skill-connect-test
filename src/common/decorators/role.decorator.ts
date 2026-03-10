@@ -17,7 +17,10 @@ export const Permissions = (
   const permissions: Permission[] = [];
 
   permsOrRoles.forEach((item: any) => {
-    if (typeof item === 'string' && Object.values(Permission).includes(item as Permission)) {
+    if (
+      typeof item === 'string' &&
+      Object.values(Permission).includes(item as Permission)
+    ) {
       // Direct permission
       permissions.push(item as Permission);
     } else if (Object.values(RoleName).includes(item as RoleName)) {

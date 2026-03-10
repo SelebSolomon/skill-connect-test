@@ -408,19 +408,18 @@ private logger = new Logger(ProfileService.name);
     const isValidId = Types.ObjectId.isValid(userId);
     if (!isValidId) throw new BadRequestException('invalid ID');
 
-    const profile = await this.profileModel.findOne({ _id: userId });
+    const profile = await this.profileModel
+      .findOne({ userId })
+      .populate('userId', 'name email')
+      .populate('services', 'name category slug')
+      .select('-photoPublicId -verificationType -__v -updatedAt');
 
     if (!profile) {
       this.logger.log('no profile found');
       throw new NotFoundException('No profile found');
     }
 
-    return {
-      status: 'success',
-      data: {
-        profile,
-      },
-    };
+    return profile;
   }
 
 async queryProfiles(queryDto: QueryProfilesDto) {

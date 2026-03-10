@@ -1,4 +1,11 @@
-import { IsOptional, IsString, IsNumber, IsBoolean, IsMongoId, Min } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  IsNumber,
+  IsBoolean,
+  IsMongoId,
+  Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class QueryProfilesDto {

@@ -1,5 +1,5 @@
-import { Logger } from "@nestjs/common";
-import { EmailService } from "src/shared/email/email.service";
+import { Logger } from '@nestjs/common';
+import { EmailService } from 'src/shared/email/email.service';
 
 export const sendVerificationEmailAsync = async (
   emailsService: EmailService,
@@ -32,7 +32,6 @@ export const sendVerificationEmailAsync = async (
   }
 };
 
-
 export const sendWelcomeEmailHelper = async (
   emailsService: EmailService,
   logger: Logger,
@@ -52,7 +51,6 @@ export const sendWelcomeEmailHelper = async (
   }
 };
 
-
 export const sendPasswordResetEmailHelper = async (
   emailsService: EmailService,
   logger: Logger,
@@ -65,10 +63,14 @@ export const sendPasswordResetEmailHelper = async (
     if (result.success) {
       logger.log(`Password Reset email sent to ${email}`);
     } else {
-      logger.error(`Failed to send reset password email to ${email}: ${result.error}`);
+      logger.error(
+        `Failed to send reset password email to ${email}: ${result.error}`,
+      );
     }
   } catch (error: any) {
-    logger.error(`Error sending reset password email to ${email}:`, error.message);
+    logger.error(
+      `Error sending reset password email to ${email}:`,
+      error.message,
+    );
   }
 };
-

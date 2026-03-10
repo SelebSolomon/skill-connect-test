@@ -1,5 +1,5 @@
 import { Prop, Schema } from '@nestjs/mongoose';
-import { MilestoneStatus } from '../enums/milestone-status.';
+import { MilestoneStatus } from '../enums/milestone-status.enum';
 
 @Schema({ _id: false })
 export class Milestones {

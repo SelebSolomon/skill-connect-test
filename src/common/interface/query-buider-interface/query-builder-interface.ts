@@ -1,5 +1,5 @@
 export interface QueryString {
-  page?: string | number;   // accepts number (from DTO @Type transform) or string (raw query param)
+  page?: string | number; // accepts number (from DTO @Type transform) or string (raw query param)
   limit?: string | number;
   sort?: string;
   fields?: string;

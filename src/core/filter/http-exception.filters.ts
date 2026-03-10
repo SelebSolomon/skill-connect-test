@@ -44,9 +44,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode: status,
       message: isServerError
         ? 'Something went wrong. Please try again later.' // never leak internals
-        : this.extractClientMessage(exception),           // safe for 4xx
+        : this.extractClientMessage(exception), // safe for 4xx
       ...(this.hasMultipleErrors(exception) && {
-        errors: this.extractMessages(exception),          // validation array
+        errors: this.extractMessages(exception), // validation array
       }),
       path: request.url,
       timestamp: new Date().toISOString(),
@@ -62,7 +62,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (typeof res === 'string') return res;
 
     const messages = (res as any)?.message;
-    if (Array.isArray(messages) && messages.length > 1) return 'Validation failed';
+    if (Array.isArray(messages) && messages.length > 1)
+      return 'Validation failed';
     if (Array.isArray(messages)) return messages[0];
     if (typeof messages === 'string') return messages;
 
@@ -73,7 +74,9 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     if (!(exception instanceof HttpException)) return undefined;
     const res = exception.getResponse();
     const messages = (res as any)?.message;
-    return Array.isArray(messages) && messages.length > 1 ? messages : undefined;
+    return Array.isArray(messages) && messages.length > 1
+      ? messages
+      : undefined;
   }
 
   private hasMultipleErrors(exception: unknown): boolean {

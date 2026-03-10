@@ -1,11 +1,5 @@
 import { Transform } from 'class-transformer';
 import {
-  IsOptional,
-  IsArray,
-  IsNumber,
-  IsMongoId,
-  IsBoolean,
-  IsIn,
   IsNotEmpty,
   IsString,
   IsEmail,
@@ -40,16 +34,10 @@ export class CreateUserDto {
   })
   password: string;
 
-  @IsOptional()
-  @IsEnum(RoleName, {
-    message: 'roleName must be a valid role',
+  @IsEnum([RoleName.Client, RoleName.Provider], {
+    message: 'roleName must be either "client" or "provider"',
   })
-  roleName?: RoleName;
-
-  @IsOptional()
-  @IsMongoId()
-  role?: string
-
+  roleName: RoleName.Client | RoleName.Provider;
 }
 
 export class CreateAdminDto {

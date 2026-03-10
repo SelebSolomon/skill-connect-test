@@ -15,6 +15,8 @@ import { BootstrapService } from 'src/bootstrap/bootstrap.service';
 import { JobsModule } from './jobs/jobs.module';
 import { BidsModule } from './bids/bids.module';
 import { ConversationsModule } from './conversations/conversations.module';
+import { MessagesModule } from './messages/messages.module';
+import { ReviewsModule } from './reviews/reviews.module';
 
 // import authConstants from 'src/common/constants/auth.constants';
 
@@ -55,6 +57,8 @@ import { ConversationsModule } from './conversations/conversations.module';
     JobsModule,
     BidsModule,
     ConversationsModule,
+    MessagesModule,
+    ReviewsModule,
 
   ],
   controllers: [],

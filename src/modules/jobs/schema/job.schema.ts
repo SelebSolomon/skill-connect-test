@@ -42,7 +42,7 @@ export class Job {
   imagePublicId: string;
 
   @Prop({ type: Number, min: 0 })
-  budget: Number;
+  budget: number;
 
   @Prop({ type: String })
   jobLocation: string;

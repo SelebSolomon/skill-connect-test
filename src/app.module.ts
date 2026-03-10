@@ -5,7 +5,7 @@ import { DomainModule } from './modules/domain.module';
 // import { MulterModule } from '@nestjs/platform-express';
 
 @Module({
-  imports: [ DomainModule],
+  imports: [DomainModule],
   controllers: [AppController],
   providers: [AppService],
 })

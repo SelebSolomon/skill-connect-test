@@ -1,6 +1,6 @@
-import { IsMongoId } from "class-validator";
+import { IsMongoId } from 'class-validator';
 
 export class AssignProviderDto {
-    @IsMongoId()
-    providerId: string;
+  @IsMongoId()
+  providerId: string;
 }

@@ -69,10 +69,7 @@ export class ProfileController {
       portfolioImages?: Express.Multer.File[];
     },
   ) {
-    console.log('Files object:', files);
-    console.log('Photo:', files?.photo);
-    console.log('Portfolio:', files?.portfolioImages);
-    console.log('Raw req.files:', req['files']);
+ 
 
     return await this.profileService.createProfile(
       req.user.sub,

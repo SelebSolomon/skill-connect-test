@@ -18,5 +18,4 @@ export class PortfolioItem {
   link?: string;
 }
 
-export const PortfolioItemSchema =
-  SchemaFactory.createForClass(PortfolioItem);
+export const PortfolioItemSchema = SchemaFactory.createForClass(PortfolioItem);
