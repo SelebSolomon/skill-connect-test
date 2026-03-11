@@ -74,7 +74,6 @@ export class Transaction {
 export const TransactionSchema = SchemaFactory.createForClass(Transaction);
 
 // Ensure one transaction per job (can't double-bill)
-TransactionSchema.index({ jobId: 1 }, { unique: true });
 TransactionSchema.index({ providerId: 1, status: 1 });
 
 TransactionSchema.set('toJSON', {
