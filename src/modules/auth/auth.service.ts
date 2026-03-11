@@ -204,7 +204,6 @@ export class AuthService {
       throw new NotFoundException('Invalid Credentials');
     }
 
-    console.log('hello world');
     if (!existingUser.isActive || !existingUser.emailVerified) {
       throw new BadRequestException('An Error occured, Please verify your email or contact support');
     }
@@ -216,6 +215,7 @@ export class AuthService {
       this.jwtService,
       existingUser._id.toString(),
       existingUser.role.toString(),
+      existingUser.email,
     );
 
     // 2️⃣ Sign refresh token (separate secret)
@@ -279,6 +279,7 @@ export class AuthService {
       this.jwtService,
       user._id.toString(),
       user.role.toString(),
+      user.email,
     );
 
     const newRefreshToken = await signRefreshToken(

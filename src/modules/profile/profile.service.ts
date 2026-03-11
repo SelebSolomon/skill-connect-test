@@ -230,6 +230,7 @@ private logger = new Logger(ProfileService.name);
       .populate('services');
 
     if (!profile) {
+      this.logger.error("profile not found")
       throw new NotFoundException('NO profile was found');
     }
 

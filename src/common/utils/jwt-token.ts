@@ -6,10 +6,12 @@ export const signAccessToken = async (
   jwtService: JwtService,
   userId: string,
   role: string,
+  email: string,
 ): Promise<string> => {
   const payload: JwtPayload = {
     sub: userId,
     role,
+    email,
   };
 
   return jwtService.signAsync(payload);

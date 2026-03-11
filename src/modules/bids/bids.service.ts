@@ -28,6 +28,20 @@ export class BidsService {
     private notificationsService: NotificationsService,
   ) {}
 
+  async findByProviderAndJob(
+    providerId: string,
+    jobId: string,
+  ): Promise<{ proposedPrice: number } | null> {
+    return this.bidModel
+      .findOne({
+        jobId: new Types.ObjectId(jobId),
+        providerId: new Types.ObjectId(providerId),
+        withdrawn: false,
+      })
+      .select('proposedPrice')
+      .lean();
+  }
+
   async findBidsForJob(jobId: string) {
     return await this.bidModel
       .find({ jobId })

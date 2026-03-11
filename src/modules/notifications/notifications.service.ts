@@ -1,30 +1,39 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Notification, NotificationDocument } from './schema/notification.schema';
 import { CreateNotificationDto } from './dto/create-notification.dto';
+import { NotificationsGateway } from './notifications.gateway';
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     @InjectModel(Notification.name)
     private readonly notificationModel: Model<NotificationDocument>,
+    @Inject(forwardRef(() => NotificationsGateway))
+    private readonly gateway: NotificationsGateway,
   ) {}
 
   /**
-   * Internal helper used by other services to fire a single notification.
+   * Persist + push a single notification in real time.
    * Silently swallows errors so a failure never breaks the caller.
    */
   async send(dto: CreateNotificationDto): Promise<void> {
     try {
-      await this.notificationModel.create(dto);
-    } catch {
-      // notification errors must never surface to the caller
+      const notification = await this.notificationModel.create(dto);
+      this.gateway.emitToUser(dto.userId, notification);
+    } catch (err) {
+      this.logger.error(
+        `Failed to send notification to user ${dto.userId} [${dto.type}]`,
+        err instanceof Error ? err.stack : err,
+      );
     }
   }
 
   /**
-   * Bulk-send the same notification to many users (e.g. job posted → all matching providers).
+   * Persist + push the same notification to many users at once.
    */
   async sendToMany(
     userIds: string[],
@@ -34,8 +43,12 @@ export class NotificationsService {
     try {
       const docs = userIds.map((userId) => ({ ...payload, userId }));
       await this.notificationModel.insertMany(docs, { ordered: false });
-    } catch {
-      // swallow
+      this.gateway.emitToMany(userIds, payload);
+    } catch (err) {
+      this.logger.error(
+        `Failed to send bulk notifications to ${userIds.length} users [${payload.type}]`,
+        err instanceof Error ? err.stack : err,
+      );
     }
   }
 

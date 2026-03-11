@@ -8,6 +8,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/register.dto';
 import { ResendEmailToken } from './dto/send-email.dto';
@@ -18,10 +19,12 @@ import { UpdatePasswordDto } from './dto/update-password-dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
+@UseGuards(ThrottlerGuard)
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   async register(@Body() createUserDto: CreateUserDto) {
     return this.authService.register(createUserDto);
   }
@@ -32,12 +35,13 @@ export class AuthController {
   }
 
   @Post('resend-verification-email')
+  @Throttle({ auth: { limit: 3, ttl: 60_000 } })
   async resendVerificationEmail(@Body('email') email: ResendEmailToken) {
     return this.authService.resendVerificationEmail(email.email);
   }
 
-  // @UseGuards(JwtGuards)
   @Post('login')
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   async login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -66,6 +70,7 @@ export class AuthController {
   }
 
   @Post('forgot-password')
+  @Throttle({ auth: { limit: 3, ttl: 60_000 } })
   async forgotPassword(@Body() email: ResendEmailToken) {
     return await this.authService.forgotPassword(email.email);
   }

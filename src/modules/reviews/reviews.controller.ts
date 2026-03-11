@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -37,12 +38,20 @@ export class ReviewsController {
   }
 
   /**
-   * GET /reviews/user/:userId
-   * Public — get all reviews written about a given provider.
+   * GET /reviews/user/:userId?page=1&limit=20
+   * Public — get paginated reviews written about a given provider.
    */
   @Get('user/:userId')
-  getReviewsByUser(@Param('userId') userId: string) {
-    return this.reviewsService.getReviewsByUser(userId);
+  getReviewsByUser(
+    @Param('userId') userId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.reviewsService.getReviewsByUser(
+      userId,
+      page ? +page : 1,
+      limit ? +limit : 20,
+    );
   }
 
   /**

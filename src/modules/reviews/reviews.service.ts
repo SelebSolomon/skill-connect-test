@@ -30,31 +30,25 @@ export class ReviewsService {
   async postReview(dto: CreateReviewDto, reviewerId: string) {
     const { jobId, revieweeId, rating, comment } = dto;
 
-    // 1. Load job via JobsService — no direct DB query here
     const job = await this.jobsService.findById(jobId);
 
-    // 2. Only the client of that job can write a review
     if (job.clientId.toString() !== reviewerId) {
       throw new ForbiddenException('Only the client of this job can leave a review');
     }
 
-    // 3. The reviewee must be the assigned provider
     if (!job.providerId || job.providerId.toString() !== revieweeId) {
       throw new ForbiddenException('You can only review the provider assigned to this job');
     }
 
-    // 4. Job must be completed
     if (job.status !== Status.completed) {
       throw new BadRequestException('You can only review a completed job');
     }
 
-    // 5. Prevent duplicate review for the same job by the same reviewer
     const exists = await this.reviewModel.findOne({ jobId, reviewerId });
     if (exists) {
       throw new ConflictException('You have already reviewed this job');
     }
 
-    // 6. Create review
     const review = await this.reviewModel.create({
       jobId: new Types.ObjectId(jobId),
       reviewerId: new Types.ObjectId(reviewerId),
@@ -63,10 +57,8 @@ export class ReviewsService {
       comment,
     });
 
-    // 7. Recalculate provider's profile rating (fire-and-forget, never blocks the response)
     this.recalculateProfileRating(revieweeId).catch(() => null);
 
-    // 8. Notify the reviewee via NotificationsService — no direct DB query
     const reviewer = await this.usersService.findOneById(reviewerId);
     await this.notificationsService.send({
       userId: revieweeId,
@@ -79,37 +71,52 @@ export class ReviewsService {
     return review;
   }
 
-  async getReviewsByUser(userId: string) {
+  async getReviewsByUser(userId: string, page = 1, limit = 20) {
     if (!Types.ObjectId.isValid(userId)) {
       throw new BadRequestException('Invalid user ID');
     }
 
-    // Use UsersService — no direct User model query
     const user = await this.usersService.findOneById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    const reviews = await this.reviewModel
-      .find({ revieweeId: new Types.ObjectId(userId), isDeleted: false })
-      .populate({
-        path: 'reviewerId',
-        select: 'name',
-        populate: { path: 'profile', select: 'photoUrl' },
-      })
-      .sort({ createdAt: -1 })
-      .select('-__v -isDeleted -deletedAt');
+    const filter = { revieweeId: new Types.ObjectId(userId), isDeleted: false };
+    const skip = (page - 1) * limit;
 
-    const { total, count } = reviews.reduce(
-      (acc, r) => ({ total: acc.total + r.rating, count: acc.count + 1 }),
-      { total: 0, count: 0 },
-    );
+    // Paginated reviews + total count in parallel
+    const [reviews, totalReviews] = await Promise.all([
+      this.reviewModel
+        .find(filter)
+        .populate({
+          path: 'reviewerId',
+          select: 'name',
+          populate: { path: 'profile', select: 'photoUrl' },
+        })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('-__v -isDeleted -deletedAt'),
+      this.reviewModel.countDocuments(filter),
+    ]);
+
+    // Aggregate rating stats over ALL reviews (not just current page)
+    const stats = await this.reviewModel.aggregate([
+      { $match: filter },
+      { $group: { _id: null, total: { $sum: '$rating' }, count: { $sum: 1 } } },
+    ]);
+
+    const ratingStats = stats[0] ?? { total: 0, count: 0 };
 
     return {
       user,
-      numberOfReviews: count,
-      averageRating: count > 0 ? parseFloat((total / count).toFixed(1)) : 0,
+      numberOfReviews: totalReviews,
+      averageRating: ratingStats.count > 0
+        ? parseFloat((ratingStats.total / ratingStats.count).toFixed(1))
+        : 0,
       reviews,
+      page,
+      totalPages: Math.ceil(totalReviews / limit),
     };
   }
 
@@ -128,7 +135,6 @@ export class ReviewsService {
       throw new NotFoundException('Review not found');
     }
 
-    // Recalculate rating after admin edit
     this.recalculateProfileRating(review.revieweeId.toString()).catch(() => null);
 
     return { message: 'Review updated successfully', data: review };
@@ -148,16 +154,11 @@ export class ReviewsService {
     review.deletedAt = new Date();
     await review.save();
 
-    // Recalculate rating after soft-delete
     this.recalculateProfileRating(review.revieweeId.toString()).catch(() => null);
 
     return { message: 'Review deleted' };
   }
 
-  /**
-   * Aggregates non-deleted reviews for a provider and updates their profile rating.
-   * Uses ProfileService — no direct Profile model access here.
-   */
   private async recalculateProfileRating(revieweeId: string): Promise<void> {
     const stats = await this.reviewModel.aggregate([
       {

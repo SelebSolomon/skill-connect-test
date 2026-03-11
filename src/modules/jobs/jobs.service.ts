@@ -11,8 +11,9 @@ import {
 import { CreateJobDto } from './dto/create-job.dto';
 import { UpdateJobDto } from './dto/update-job.dto';
 import { InjectModel } from '@nestjs/mongoose';
+import { InjectConnection } from '@nestjs/mongoose';
 import { Job, JobDocument } from './schema/job.schema';
-import { Model, Types } from 'mongoose';
+import { Connection, Model, Types } from 'mongoose';
 import { CloudinaryService } from 'src/shared/cloudinary/cloudinary.service';
 import { ServicesService } from '../services/services.service';
 import { buildQuery } from '../../common/utils/query-builder';
@@ -26,12 +27,14 @@ import { BidsService } from '../bids/bids.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/dto/create-notification.dto';
 import { ProfileService } from '../profile/profile.service';
+import { TransactionsService } from '../transactions/transactions.service';
 
 @Injectable()
 export class JobsService {
   private logger = new Logger(JobsService.name);
   constructor(
     @InjectModel(Job.name) private jobModel: Model<JobDocument>,
+    @InjectConnection() private readonly connection: Connection,
     private cloudinaryService: CloudinaryService,
     private serviceService: ServicesService,
     private userService: UsersService,
@@ -39,6 +42,7 @@ export class JobsService {
     private bidsService: BidsService,
     private notificationsService: NotificationsService,
     private profileService: ProfileService,
+    private transactionsService: TransactionsService,
   ) {}
 
   async findById(id: string) {
@@ -68,11 +72,11 @@ export class JobsService {
   ) {
     if (!loggedInClientId) {
       throw new UnauthorizedException(
-        'You are not authorized to perform this acction',
+        'You are not authorized to perform this action',
       );
     }
-    let imageUrl: any;
-    let imagePublicId: any;
+    let imageUrl: string | undefined;
+    let imagePublicId: string | undefined;
 
     if (file) {
       const uploadResult = await this.cloudinaryService.uploadImage(
@@ -91,7 +95,7 @@ export class JobsService {
       throw new NotFoundException('Service not found');
     }
 
-    const result = {
+    const job = await this.jobModel.create({
       clientId: loggedInClientId,
       title: createJobDto.title,
       description: createJobDto.description,
@@ -100,14 +104,12 @@ export class JobsService {
       serviceId: createJobDto.serviceId,
       imageUrl,
       imagePublicId,
-    };
-    const job = await this.jobModel.create(result);
+    });
 
     // Notify providers who offer this service (fire-and-forget)
     this.profileService
       .findProvidersByService(createJobDto.serviceId)
       .then((providerIds) => {
-        // Exclude the client themselves in case they are somehow in the list
         const targets = providerIds.filter((id) => id !== loggedInClientId);
         return this.notificationsService.sendToMany(targets, {
           type: NotificationType.Job,
@@ -126,22 +128,14 @@ export class JobsService {
       this.jobModel,
       query,
       {
-        // Regex search  only plain string fields
         textFields: ['title', 'description'],
-        // this comment will help your life
-        // Dedicated location filter via ?location=Lagos
         locationField: 'jobLocation',
-
-        // These are cast to ObjectId before querying  no cast errors
         objectIdFields: ['serviceId', 'providerId', 'clientId'],
-
-        // These are matched exactly — no regex, safe for enums
         enumFields: ['status'],
       },
       {
         excludeFields: [
           'milestones',
-          'imagePublicId',
           'imagePublicId',
           'isDeleted',
           'deletedBy',
@@ -155,7 +149,7 @@ export class JobsService {
 
   async myJobs(loggedInUser: string, query: JobQueryDto) {
     const userFilter = {
-      isDeleted: false, // ✅ Correct field name
+      isDeleted: false,
       $or: [{ clientId: loggedInUser }, { providerId: loggedInUser }],
     };
 
@@ -174,20 +168,19 @@ export class JobsService {
   }
 
   async getJobById(id: string) {
-    const validId = new Types.ObjectId(id);
-    if (!validId) {
-      throw new BadRequestException('Invalid Mongodb Id');
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid MongoDB Id');
     }
 
-    const jobs = await this.jobModel
+    const job = await this.jobModel
       .findOne({ _id: id, isDeleted: false })
       .exec();
 
-    if (!jobs) {
+    if (!job) {
       throw new NotFoundException('NO jobs found with this id');
     }
 
-    return jobs;
+    return job;
   }
 
   async updateJob(
@@ -202,7 +195,6 @@ export class JobsService {
     const allowedFields = ['title', 'description', 'budget', 'jobLocation'];
     const sentFields = Object.keys(updateJobDto);
 
-    // Check for invalid fields FIRST
     const invalidFields = sentFields.filter((f) => !allowedFields.includes(f));
     if (invalidFields.length > 0) {
       throw new BadRequestException(
@@ -210,7 +202,6 @@ export class JobsService {
       );
     }
 
-    // Build update data AFTER validation
     const updateData: Partial<UpdateJobDto> = {};
     for (const field of allowedFields) {
       if (updateJobDto[field] !== undefined) {
@@ -251,14 +242,12 @@ export class JobsService {
       throw new NotFoundException('NO job found with this id');
     }
 
-    // Authorization
     if (job.clientId.toString() !== loggedInUser) {
       throw new UnauthorizedException(
         'You are not authorized to delete this job',
       );
     }
 
-    // Business rule
     if (job.status !== Status.open) {
       throw new BadRequestException(
         'Only jobs with status "open" can be deleted',
@@ -290,45 +279,46 @@ export class JobsService {
     }
     const { providerId } = assignProviderDto;
 
-    // Validate provider first
     const provider = await this.userService.findById(providerId);
     if (!provider || provider.roleName !== RoleName.Provider) {
       throw new BadRequestException('Invalid provider');
     }
 
-    // Atomic update with conditions
+    const bid = await this.bidsService.findByProviderAndJob(providerId, id);
+    const agreedPrice = bid?.proposedPrice ?? null;
+
     const job = await this.jobModel
       .findOneAndUpdate(
         {
           _id: id,
           clientId: loggedInUser,
           status: Status.open,
-          providerId: { $exists: false }, // Not already assigned
+          providerId: { $exists: false },
         },
         {
           $set: {
             providerId: new Types.ObjectId(providerId),
             status: Status.in_progress,
             assignedDate: new Date(),
+            ...(agreedPrice !== null && { agreedPrice }),
           },
         },
         { new: true },
       )
       .select(
         '-milestones -imagePublicId -isDeleted -deletedBy -deleteAt -createdAt -updatedAt',
-      ); // Exclude sensitive fields
+      );
 
     if (!job) {
       throw new BadRequestException('Job already assigned or not found');
     }
 
-    // Notify the assigned provider (fire-and-forget)
     this.notificationsService
       .send({
         userId: providerId,
         type: NotificationType.Job,
         title: 'You Were Assigned to a Job',
-        message: `You have been assigned to: "${job.title}"`,
+        message: `You have been assigned to: "${job.title}"${agreedPrice ? ` for ₦${agreedPrice.toLocaleString()}` : ''}`,
         link: `/jobs/${job._id}`,
       })
       .catch(() => null);
@@ -351,7 +341,6 @@ export class JobsService {
       throw new NotFoundException('Job not found');
     }
 
-    // Can only unassign if job just started (within 1 hour) OR not started yet
     const hoursSinceAssigned =
       (Date.now() - job.assignedDate.getTime()) / (1000 * 60 * 60);
 
@@ -382,7 +371,6 @@ export class JobsService {
         '-milestones -imagePublicId -isDeleted -deletedBy -deleteAt -createdAt -updatedAt -unassignedAt -assignedDate ',
       );
 
-    // Notify the unassigned provider (fire-and-forget)
     this.notificationsService
       .send({
         userId: job.providerId.toString(),
@@ -394,6 +382,64 @@ export class JobsService {
       .catch(() => null);
 
     return updatedJob;
+  }
+
+  async completeJob(id: string, loggedInUser: string) {
+    if (!Types.ObjectId.isValid(id)) {
+      throw new BadRequestException('Invalid MongoDB Id');
+    }
+
+    // ── Atomic: job status + commission in a single MongoDB session ──────────
+    const session = await this.connection.startSession();
+    let job: JobDocument | null = null;
+
+    try {
+      session.startTransaction();
+
+      job = await this.jobModel.findOneAndUpdate(
+        { _id: id, clientId: loggedInUser, status: Status.in_progress },
+        { $set: { status: Status.completed } },
+        { new: true, session },
+      );
+
+      if (!job) {
+        await session.abortTransaction();
+        throw new NotFoundException(
+          'Job not found, not yours, or not in progress',
+        );
+      }
+
+      await this.transactionsService.recordCommission(
+        {
+          jobId: id, // 'id' is the validated param — same value, avoids _id type issue
+          providerId: job.providerId.toString(),
+          clientId: job.clientId.toString(),
+          agreedPrice: job.agreedPrice ?? job.budget ?? 0,
+        },
+        session,
+      );
+
+      await session.commitTransaction();
+    } catch (err) {
+      await session.abortTransaction();
+      throw err;
+    } finally {
+      await session.endSession();
+    }
+
+    // Notify AFTER successful commit (fire-and-forget)
+    // job! — non-null asserted: if we reach here, the try block succeeded
+    this.notificationsService
+      .send({
+        userId: job!.providerId.toString(),
+        type: NotificationType.Job,
+        title: 'Job Completed',
+        message: `"${job!.title}" has been marked as completed by the client.`,
+        link: `/jobs/${id}`,
+      })
+      .catch(() => null);
+
+    return job!;
   }
 
   async getBidsForJob(jobId: string, loggedInUser: string) {
@@ -410,7 +456,6 @@ export class JobsService {
       throw new NotFoundException('Job not found');
     }
 
-    // 🔐 Client-only access
     if (job.clientId.toString() !== loggedInUser) {
       throw new ForbiddenException(
         'You are not allowed to view bids for this job',

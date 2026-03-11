@@ -115,9 +115,17 @@ export class JobsController {
   }
 
   @UseGuards(JwtGuards, RolesGuard)
-  @Permissions([
-    ...RolePermissions[RoleName.Client], 
-  ])
+  @Permissions([...RolePermissions[RoleName.Client]])
+  @Patch(':id/complete')
+  async completeJob(
+    @Param('id') id: string,
+    @Req() req: Request & { user: { sub: string } },
+  ) {
+    return this.jobsService.completeJob(id, req.user.sub);
+  }
+
+  @UseGuards(JwtGuards, RolesGuard)
+  @Permissions([...RolePermissions[RoleName.Client]])
   @Get(':jobId/bids')
   async getBidsForJob(
     @Req() req: Request & { user: { sub: string } },

@@ -8,7 +8,14 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { GlobalExceptionFilter } from './core/filter/http-exception.filters';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    rawBody: true, // needed for Paystack webhook HMAC verification
+  });
+  app.enableCors({
+    origin: true, // Allow all origins in production (or specify your domain)
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       transform: true,
@@ -32,8 +39,8 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('docs', app, document);
 
-  if (process.env.NODE_ENV !== 'production') {
-    await app.listen(5000); // 💥
-  }
+  const port = process.env.PORT ?? 8000;
+  console.log(port);
+  await app.listen(port);
 }
 void bootstrap();

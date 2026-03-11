@@ -44,6 +44,10 @@ export class Job {
   @Prop({ type: Number, min: 0 })
   budget: number;
 
+  /** Locked in when provider is assigned (from accepted bid). Basis for 5% commission. */
+  @Prop({ type: Number, min: 0, default: null })
+  agreedPrice: number | null;
+
   @Prop({ type: String })
   jobLocation: string;
 

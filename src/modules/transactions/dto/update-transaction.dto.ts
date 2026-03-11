@@ -1,4 +1,16 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { CreateTransactionDto } from './create-transaction.dto';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 
-export class UpdateTransactionDto extends PartialType(CreateTransactionDto) {}
+/** Used by admin to mark a transaction as paid or waived */
+export class MarkPaidDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  paymentReference?: string;
+}
+
+export class WaiveDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}

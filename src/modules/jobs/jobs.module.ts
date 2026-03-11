@@ -9,6 +9,7 @@ import { ServicesModule } from '../services/services.module';
 import { BidsModule } from '../bids/bids.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProfileModule } from '../profile/profile.module';
+import { TransactionsModule } from '../transactions/transactions.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ProfileModule } from '../profile/profile.module';
     forwardRef(() => BidsModule),
     NotificationsModule,
     ProfileModule,
+    TransactionsModule,
   ],
   controllers: [JobsController],
   providers: [JobsService, CloudinaryService],
