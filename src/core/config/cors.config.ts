@@ -1,7 +1,7 @@
 type CorsCallback = (err: Error | null, allow?: boolean) => void;
 
 const DEFAULT_DEV_ORIGIN = 'http://localhost:3000';
-const DEFAULT_PROD_ORIGIN = 'https://skill-connect-test-1.onrender.com';
+const DEFAULT_PROD_ORIGIN = 'https://skill-links.netlify.app';
 
 function normalizeOrigins(value: string | undefined): string[] {
   if (!value) return [];
