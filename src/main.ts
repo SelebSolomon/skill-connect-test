@@ -6,6 +6,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { TransformResponseInterceptor } from './core/interceptors/reponse.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { GlobalExceptionFilter } from './core/filter/http-exception.filters';
+import { corsOriginFn } from './core/config/cors.config';
 
 
 async function bootstrap() {
@@ -13,7 +14,7 @@ async function bootstrap() {
     rawBody: true, // needed for Paystack webhook HMAC verification
   });
   app.enableCors({
-    origin: true, // Allow all origins in production (or specify your domain)
+    origin: corsOriginFn,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

@@ -13,9 +13,10 @@ import { Inject, Logger, UseFilters, forwardRef } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { corsOriginFn } from '../../core/config/cors.config';
 
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: { origin: corsOriginFn, credentials: true },
   namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {

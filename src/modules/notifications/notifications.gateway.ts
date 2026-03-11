@@ -12,9 +12,10 @@ import { Server, Socket } from 'socket.io';
 import { forwardRef, Inject, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { NotificationsService } from './notifications.service';
+import { corsOriginFn } from '../../core/config/cors.config';
 
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: { origin: corsOriginFn, credentials: true },
   namespace: '/notifications',
 })
 export class NotificationsGateway
