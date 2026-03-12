@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Resend } from 'resend';
+import sgMail from '@sendgrid/mail';
 import { EmailOptions } from './interface/email.options';
 import { EmailResult } from './interface/email.result';
 import { EmailContents } from './email-template/email-content';
@@ -8,9 +8,9 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly resend?: Resend;
   private readonly appUrl: string;
   private readonly fromEmail: string;
+  private initialized = false;
 
   constructor(private configService: ConfigService) {
     const isProd = process.env.NODE_ENV === 'production';
@@ -22,78 +22,61 @@ export class EmailService {
     this.appUrl =
       frontendUrl ??
       this.configService.get<string>('APP_URL', 'http://localhost:5000');
+
     this.fromEmail = this.configService.get<string>(
-      'RESEND_FROM',
-      this.configService.get<string>(
-        'SMTP_FROM',
-        'skill link<noreply@skill-link.com>',
-      ),
+      'SENDGRID_FROM',
+      'jenniferlumanas68@gmail.com', // 👈 replace with the Gmail you verified in SendGrid
     );
 
-    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
-    if (!resendApiKey) {
+    const apiKey = this.configService.get<string>('SENDGRID_API_KEY');
+    if (!apiKey) {
       this.logger.error(
-        'Email client not initialized: missing RESEND_API_KEY',
+        'Email client not initialized: missing SENDGRID_API_KEY',
       );
       return;
     }
 
-    this.resend = new Resend(resendApiKey);
-    this.logger.log('Email client initialized (Resend)');
+    sgMail.setApiKey(apiKey);
+    this.initialized = true;
+    this.logger.log('Email client initialized (SendGrid)');
   }
-  //
+
   async sendMail(options: EmailOptions): Promise<EmailResult> {
     try {
-      if (!this.resend) {
+      if (!this.initialized) {
         const message =
-          'Email client is not initialized. Check RESEND_API_KEY env var.';
+          'Email client is not initialized. Check SENDGRID_API_KEY env var.';
         this.logger.error(message);
         return { success: false, error: message };
       }
 
       const from = options.from ?? this.fromEmail;
-      const { data, error } = await this.resend.emails.send({
+
+      await sgMail.send({
         from,
         to: options.to,
         subject: options.subject,
         html: options.html,
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
       this.logger.log(`Email sent successfully to ${options.to}`);
-
-      return {
-        success: true,
-        messageId: data?.id,
-      };
+      return { success: true };
     } catch (error) {
       this.logger.error(
         `Failed to send email to ${options.to}:`,
         error.message,
       );
-
-      return {
-        success: false,
-        error: error.message,
-      };
+      return { success: false, error: error.message };
     }
   }
 
-  //   SENDING OF EMAIL BEGAN
-
   async sendVerificationEmail(
-    from: 'skill link',
     to: string,
     token: string,
     name: string,
   ): Promise<EmailResult> {
     const verificationLink = `${this.appUrl}/verify-email?token=${token}`;
-
     return await this.sendMail({
-      from,
       to,
       subject: 'Verify Your Email Address',
       html: EmailContents.emailVerification(verificationLink, name),
@@ -113,9 +96,7 @@ export class EmailService {
     token: string,
   ): Promise<EmailResult> {
     const resetLink = `${this.appUrl}/reset-password?token=${token}`;
-
     return await this.sendMail({
-      from: 'Skill link',
       to,
       subject: 'Password Reset Request',
       html: EmailContents.passwordReset(resetLink),

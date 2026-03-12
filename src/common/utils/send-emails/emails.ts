@@ -10,7 +10,6 @@ export const sendVerificationEmailAsync = async (
 ): Promise<void> => {
   try {
     const result = await emailsService.sendVerificationEmail(
-      'skill link',
       email,
       token,
       name,

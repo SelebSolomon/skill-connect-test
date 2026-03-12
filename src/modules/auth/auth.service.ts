@@ -169,7 +169,6 @@ export class AuthService {
 
     // Send email
     const result = await this.emailService.sendVerificationEmail(
-      'skill link',
       user.email,
       verificationToken,
       user.name,
