@@ -27,7 +27,7 @@ export class EmailContents {
    */
   static emailVerification(verificationLink: string, name: string): string {
     return EmailTemplate.generate({
-      heading: 'Welcome to Jumai API! 🎉',
+      heading: 'Welcome to Skill Link! 🎉',
       greeting: `Hello ${name},`,
       content: `
         <p>Thank you for signing up! Please verify your email address to activate your account.</p>

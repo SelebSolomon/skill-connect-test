@@ -13,10 +13,18 @@ export class EmailService {
   private readonly fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    const smtpHost = this.configService.get<string>('SMTP_HOST');
-    const smtpPort = this.configService.get<number>('SMTP_PORT');
-    const smtpUser = this.configService.get<string>('SMTP_USER');
-    const smtpPass = this.configService.get<string>('SMTP_PASS');
+    const smtpHost =
+      this.configService.get<string>('SMTP_HOST') ??
+      this.configService.get<string>('MAIL_HOST');
+    const smtpPort =
+      this.configService.get<number>('SMTP_PORT') ??
+      this.configService.get<number>('MAIL_PORT');
+    const smtpUser =
+      this.configService.get<string>('SMTP_USER') ??
+      this.configService.get<string>('MAIL_USER');
+    const smtpPass =
+      this.configService.get<string>('SMTP_PASS') ??
+      this.configService.get<string>('MAIL_PASS');
     this.fromEmail = this.configService.get<string>(
       'SMTP_FROM',
       'skill link<noreply@skill-link.com>',
@@ -27,34 +35,63 @@ export class EmailService {
     );
 
     if (process.env.NODE_ENV === 'production') {
+      if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+        this.logger.error(
+          'Email transporter not initialized: missing SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS',
+        );
+        return;
+      }
+
       this.transporter = nodemailer.createTransport({
-        host: process.env.MAIL_HOST,
-        port: Number(process.env.MAIL_PORT),
-        secure: Number(process.env.MAIL_PORT) === 465,
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
         auth: {
-          user: process.env.MAIL_USER,
-          pass: process.env.MAIL_PASS,
+          user: smtpUser,
+          pass: smtpPass,
         },
       });
 
-      this.logger.log('Email transporter initialized');
+      this.logger.log('Email transporter initialized (production)');
+      return;
     } else {
+      const etherealHost =
+        this.configService.get<string>('ETHEREAL_HOST') ?? 'smtp.ethereal.email';
+      const etherealPort =
+        this.configService.get<number>('ETHEREAL_PORT') ?? 587;
+      const etherealUser = this.configService.get<string>('ETHEREAL_USER');
+      const etherealPass = this.configService.get<string>('ETHEREAL_PASS');
+
+      if (!etherealUser || !etherealPass) {
+        this.logger.error(
+          'Email transporter not initialized: missing ETHEREAL_USER/ETHEREAL_PASS',
+        );
+        return;
+      }
+
       this.transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
+        host: etherealHost,
+        port: etherealPort,
+        secure: etherealPort === 465,
         auth: {
-          user: 'alisha.goldner19@ethereal.email',
-          pass: 'uEM1EkZePfyNfBvDXB',
+          user: etherealUser,
+          pass: etherealPass,
         },
       });
-      this.logger.log(
-        'Email transporter initialized for development (Ethereal)',
-      );
+
+      this.logger.log('Email transporter initialized (development / Ethereal)');
     }
   }
-
+//
   async sendMail(options: EmailOptions): Promise<EmailResult> {
     try {
+      if (!this.transporter) {
+        const message =
+          'Email transporter is not initialized. Check SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS.';
+        this.logger.error(message);
+        return { success: false, error: message };
+      }
+
       const mailOptions = {
         from: this.fromEmail,
         to: options.to,

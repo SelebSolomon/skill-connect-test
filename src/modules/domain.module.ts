@@ -30,6 +30,7 @@ import { SettingsModule } from './settings/settings.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: ['backend/.env', '.env'],
       load: [dbConfig],
     }),
     ThrottlerModule.forRoot([
