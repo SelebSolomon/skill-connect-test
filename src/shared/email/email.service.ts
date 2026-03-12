@@ -55,6 +55,7 @@ export class EmailService {
           user: smtpUser,
           pass: smtpPass,
         },
+        family: 4,
       });
 
       this.logger.log('Email transporter initialized (production)');
@@ -76,6 +77,7 @@ export class EmailService {
           user: etherealUser,
           pass: etherealPass,
         },
+        family: 4,
       });
 
       this.logger.log('Email transporter initialized (development / Ethereal)');
@@ -97,6 +99,7 @@ export class EmailService {
         user: smtpUser,
         pass: smtpPass,
       },
+      family: 4,
     });
 
     this.logger.log('Email transporter initialized (development / SMTP)');
