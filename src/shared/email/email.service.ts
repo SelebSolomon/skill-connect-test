@@ -29,12 +29,17 @@ export class EmailService {
       'SMTP_FROM',
       'skill link<noreply@skill-link.com>',
     );
-    this.appUrl = this.configService.get<string>(
-      'APP_URL',
-      'http://localhost:5000',
-    );
+    const isProd = process.env.NODE_ENV === 'production';
+    const frontendDev = this.configService.get<string>('FRONTEND_URL_DEV');
+    const frontendProd = this.configService.get<string>('FRONTEND_URL_PROD');
+    const frontendUrl =
+      this.configService.get<string>('FRONTEND_URL') ??
+      (isProd ? frontendProd : frontendDev);
+    this.appUrl =
+      frontendUrl ??
+      this.configService.get<string>('APP_URL', 'http://localhost:5000');
 
-    if (process.env.NODE_ENV === 'production') {
+    if (isProd) {
       if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
         this.logger.error(
           'Email transporter not initialized: missing SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS',
@@ -54,21 +59,15 @@ export class EmailService {
 
       this.logger.log('Email transporter initialized (production)');
       return;
-    } else {
-      const etherealHost =
-        this.configService.get<string>('ETHEREAL_HOST') ?? 'smtp.ethereal.email';
-      const etherealPort =
-        this.configService.get<number>('ETHEREAL_PORT') ?? 587;
-      const etherealUser = this.configService.get<string>('ETHEREAL_USER');
-      const etherealPass = this.configService.get<string>('ETHEREAL_PASS');
+    }
 
-      if (!etherealUser || !etherealPass) {
-        this.logger.error(
-          'Email transporter not initialized: missing ETHEREAL_USER/ETHEREAL_PASS',
-        );
-        return;
-      }
+    const etherealHost =
+      this.configService.get<string>('ETHEREAL_HOST') ?? 'smtp.ethereal.email';
+    const etherealPort = this.configService.get<number>('ETHEREAL_PORT') ?? 587;
+    const etherealUser = this.configService.get<string>('ETHEREAL_USER');
+    const etherealPass = this.configService.get<string>('ETHEREAL_PASS');
 
+    if (etherealUser && etherealPass) {
       this.transporter = nodemailer.createTransport({
         host: etherealHost,
         port: etherealPort,
@@ -80,14 +79,34 @@ export class EmailService {
       });
 
       this.logger.log('Email transporter initialized (development / Ethereal)');
+      return;
     }
+
+    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+      this.logger.error(
+        'Email transporter not initialized: missing SMTP_* / MAIL_* or ETHEREAL_*',
+      );
+      return;
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    });
+
+    this.logger.log('Email transporter initialized (development / SMTP)');
   }
-//
+  //
   async sendMail(options: EmailOptions): Promise<EmailResult> {
     try {
       if (!this.transporter) {
         const message =
-          'Email transporter is not initialized. Check SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS.';
+          'Email transporter is not initialized. Check SMTP_* / MAIL_* or ETHEREAL_* env vars.';
         this.logger.error(message);
         return { success: false, error: message };
       }
