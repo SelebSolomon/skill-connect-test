@@ -122,7 +122,7 @@ export class EmailTemplate {
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">Jumai API</div>
+              <div class="logo">Skill Link</div>
             </div>
             
             <h2>${heading}</h2>
@@ -157,7 +157,7 @@ export class EmailTemplate {
             <div class="footer">
               ${footerNote ? `<p class="footer-note">${footerNote}</p>` : ''}
               <p>This is an automated email, please do not reply.</p>
-              <p>&copy; ${currentYear} Jumai API. All rights reserved.</p>
+              <p>&copy; ${currentYear} Skill Link. All rights reserved.</p>
             </div>
           </div>
         </body>
