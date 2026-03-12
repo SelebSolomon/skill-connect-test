@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { EmailOptions } from './interface/email.options';
 import { EmailResult } from './interface/email.result';
 import { EmailContents } from './email-template/email-content';
@@ -8,27 +8,11 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter?: nodemailer.Transporter;
+  private readonly resend?: Resend;
   private readonly appUrl: string;
   private readonly fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    const smtpHost =
-      this.configService.get<string>('SMTP_HOST') ??
-      this.configService.get<string>('MAIL_HOST');
-    const smtpPort =
-      this.configService.get<number>('SMTP_PORT') ??
-      this.configService.get<number>('MAIL_PORT');
-    const smtpUser =
-      this.configService.get<string>('SMTP_USER') ??
-      this.configService.get<string>('MAIL_USER');
-    const smtpPass =
-      this.configService.get<string>('SMTP_PASS') ??
-      this.configService.get<string>('MAIL_PASS');
-    this.fromEmail = this.configService.get<string>(
-      'SMTP_FROM',
-      'skill link<noreply@skill-link.com>',
-    );
     const isProd = process.env.NODE_ENV === 'production';
     const frontendDev = this.configService.get<string>('FRONTEND_URL_DEV');
     const frontendProd = this.configService.get<string>('FRONTEND_URL_PROD');
@@ -38,96 +22,52 @@ export class EmailService {
     this.appUrl =
       frontendUrl ??
       this.configService.get<string>('APP_URL', 'http://localhost:5000');
+    this.fromEmail = this.configService.get<string>(
+      'RESEND_FROM',
+      this.configService.get<string>(
+        'SMTP_FROM',
+        'skill link<noreply@skill-link.com>',
+      ),
+    );
 
-    if (isProd) {
-      if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-        this.logger.error(
-          'Email transporter not initialized: missing SMTP_HOST/SMTP_PORT/SMTP_USER/SMTP_PASS',
-        );
-        return;
-      }
-
-      this.transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: smtpPort,
-        secure: smtpPort === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-        family: 4,
-      });
-
-      this.logger.log('Email transporter initialized (production)');
-      return;
-    }
-
-    const etherealHost =
-      this.configService.get<string>('ETHEREAL_HOST') ?? 'smtp.ethereal.email';
-    const etherealPort = this.configService.get<number>('ETHEREAL_PORT') ?? 587;
-    const etherealUser = this.configService.get<string>('ETHEREAL_USER');
-    const etherealPass = this.configService.get<string>('ETHEREAL_PASS');
-
-    if (etherealUser && etherealPass) {
-      this.transporter = nodemailer.createTransport({
-        host: etherealHost,
-        port: etherealPort,
-        secure: etherealPort === 465,
-        auth: {
-          user: etherealUser,
-          pass: etherealPass,
-        },
-        family: 4,
-      });
-
-      this.logger.log('Email transporter initialized (development / Ethereal)');
-      return;
-    }
-
-    if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
+    const resendApiKey = this.configService.get<string>('RESEND_API_KEY');
+    if (!resendApiKey) {
       this.logger.error(
-        'Email transporter not initialized: missing SMTP_* / MAIL_* or ETHEREAL_*',
+        'Email client not initialized: missing RESEND_API_KEY',
       );
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      family: 4,
-    });
-
-    this.logger.log('Email transporter initialized (development / SMTP)');
+    this.resend = new Resend(resendApiKey);
+    this.logger.log('Email client initialized (Resend)');
   }
   //
   async sendMail(options: EmailOptions): Promise<EmailResult> {
     try {
-      if (!this.transporter) {
+      if (!this.resend) {
         const message =
-          'Email transporter is not initialized. Check SMTP_* / MAIL_* or ETHEREAL_* env vars.';
+          'Email client is not initialized. Check RESEND_API_KEY env var.';
         this.logger.error(message);
         return { success: false, error: message };
       }
 
-      const mailOptions = {
-        from: this.fromEmail,
+      const from = options.from ?? this.fromEmail;
+      const { data, error } = await this.resend.emails.send({
+        from,
         to: options.to,
         subject: options.subject,
         html: options.html,
-      };
+      });
 
-      const info = await this.transporter.sendMail(mailOptions);
+      if (error) {
+        throw new Error(error.message);
+      }
 
       this.logger.log(`Email sent successfully to ${options.to}`);
 
       return {
         success: true,
-        messageId: info.messageId,
+        messageId: data?.id,
       };
     } catch (error) {
       this.logger.error(
