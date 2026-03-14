@@ -3,6 +3,7 @@ import {
   Injectable,
   BadRequestException,
   NotFoundException,
+  OnApplicationBootstrap,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -11,10 +12,14 @@ import { INITIAL_SERVICES } from './seeding/seed.service';
 import { CreateServiceDto, UpdateServiceDto } from './dto/create-service.dto';
 
 @Injectable()
-export class ServicesService {
+export class ServicesService implements OnApplicationBootstrap {
   constructor(
     @InjectModel(Service.name) private serviceModel: Model<ServiceDocument>,
   ) {}
+
+  async onApplicationBootstrap() {
+    await this.seedServices();
+  }
 
   // functions to use external
   async getServiceById(id: string) {

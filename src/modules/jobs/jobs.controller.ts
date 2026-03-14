@@ -124,6 +124,23 @@ export class JobsController {
     return this.jobsService.completeJob(id, req.user.sub);
   }
 
+  @UseGuards(JwtGuards)
+  @Patch(':id/milestones/:milestoneId')
+  updateMilestoneStatus(
+    @Param('id') id: string,
+    @Param('milestoneId') milestoneId: string,
+    @Body('status') status: string,
+    @Req() req: Request & { user: { sub: string; roleName: string } },
+  ) {
+    return this.jobsService.updateMilestoneStatus(
+      id,
+      milestoneId,
+      status as any,
+      req.user.sub,
+      req.user.roleName,
+    );
+  }
+
   @UseGuards(JwtGuards, RolesGuard)
   @Permissions([...RolePermissions[RoleName.Client]])
   @Get(':jobId/bids')

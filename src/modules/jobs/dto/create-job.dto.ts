@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsMongoId, IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { IsMongoId, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateJobDto {
   @IsString()
@@ -22,4 +22,9 @@ export class CreateJobDto {
   @IsString()
   @IsNotEmpty()
   jobLocation: string;
+
+  /** JSON-encoded array of milestones sent as FormData string */
+  @IsOptional()
+  @IsString()
+  milestones?: string;
 }

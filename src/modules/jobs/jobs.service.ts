@@ -20,6 +20,7 @@ import { buildQuery } from '../../common/utils/query-builder';
 import { JobQueryDto } from './dto/query.dto';
 import { QueryBuilder } from 'src/common/utils/query-builder/query-builder';
 import { Status } from './enums/status.enum';
+import { MilestoneStatus } from './enums/milestone-status.enum';
 import { UsersService } from '../users/users.service';
 import { RoleName } from 'src/common/enums/roles-enums';
 import { AssignProviderDto } from './dto/assign-provider-id.dto';
@@ -95,6 +96,15 @@ export class JobsService {
       throw new NotFoundException('Service not found');
     }
 
+    let parsedMilestones: { title: string; description?: string; amount?: number }[] = [];
+    if (createJobDto.milestones) {
+      try {
+        parsedMilestones = JSON.parse(createJobDto.milestones);
+      } catch {
+        parsedMilestones = [];
+      }
+    }
+
     const job = await this.jobModel.create({
       clientId: loggedInClientId,
       title: createJobDto.title,
@@ -104,6 +114,7 @@ export class JobsService {
       serviceId: createJobDto.serviceId,
       imageUrl,
       imagePublicId,
+      milestones: parsedMilestones,
     });
 
     // Notify providers who offer this service (fire-and-forget)
@@ -440,6 +451,52 @@ export class JobsService {
       .catch(() => null);
 
     return job!;
+  }
+
+  async updateMilestoneStatus(
+    jobId: string,
+    milestoneId: string,
+    status: MilestoneStatus,
+    userId: string,
+    roleName: string,
+  ) {
+    if (!Types.ObjectId.isValid(jobId) || !Types.ObjectId.isValid(milestoneId)) {
+      throw new BadRequestException('Invalid ID');
+    }
+
+    const job = await this.jobModel.findOne({ _id: jobId, isDeleted: false });
+    if (!job) throw new NotFoundException('Job not found');
+
+    const milestone = job.milestones.find(
+      (m) => m._id.toString() === milestoneId,
+    );
+    if (!milestone) throw new NotFoundException('Milestone not found');
+
+    if (status === MilestoneStatus.completed) {
+      if (roleName !== RoleName.Provider || job.providerId?.toString() !== userId) {
+        throw new ForbiddenException('Only the assigned provider can mark milestones as completed');
+      }
+      if (milestone.status !== MilestoneStatus.pending) {
+        throw new BadRequestException('Milestone must be pending to mark as completed');
+      }
+    }
+
+    if (status === MilestoneStatus.paid) {
+      if (job.clientId.toString() !== userId) {
+        throw new ForbiddenException('Only the client can release payment for milestones');
+      }
+      if (milestone.status !== MilestoneStatus.completed) {
+        throw new BadRequestException('Milestone must be completed before payment can be released');
+      }
+    }
+
+    const updated = await this.jobModel.findOneAndUpdate(
+      { _id: jobId, 'milestones._id': milestoneId },
+      { $set: { 'milestones.$.status': status } },
+      { new: true },
+    );
+
+    return updated;
   }
 
   async getBidsForJob(jobId: string, loggedInUser: string) {
