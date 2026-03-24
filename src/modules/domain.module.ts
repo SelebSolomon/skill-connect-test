@@ -25,7 +25,7 @@ import { ReportsModule } from './reports/reports.module';
 import { WalletModule } from './wallet/wallet.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { SettingsModule } from './settings/settings.module';
-
+// module
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -35,7 +35,6 @@ import { SettingsModule } from './settings/settings.module';
     }),
     ThrottlerModule.forRoot([
       {
-        
         name: 'default',
         ttl: 60_000,
         limit: 60,
