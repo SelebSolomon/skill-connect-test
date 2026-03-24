@@ -19,7 +19,7 @@ import { CreateProfileDto } from './dto/profile.dto';
 import { JwtGuards } from 'src/core/guards/jwt-guards';
 import { Request } from 'express';
 import { Permissions } from 'src/common/decorators/role.decorator';
-import { RolePermissions } from 'src/common/enums/permissions-enum';
+import { Permission, RolePermissions } from 'src/common/enums/permissions-enum';
 import { RoleName } from 'src/common/enums/roles-enums';
 import { RolesGuard } from 'src/core/guards/role.guards';
 import {
@@ -69,8 +69,6 @@ export class ProfileController {
       portfolioImages?: Express.Multer.File[];
     },
   ) {
- 
-
     return await this.profileService.createProfile(
       req.user.sub,
       createProfileDto,
@@ -117,7 +115,7 @@ export class ProfileController {
   @Patch('me/photo')
   @UseInterceptors(FileInterceptor('photo', multerOptions))
   @UseGuards(JwtGuards, RolesGuard)
-  @Permissions([...RolePermissions[RoleName.Provider]])
+  @Permissions([Permission.ManageOwnAccount])
   async updateProfilePhoto(
     @Req() req: Request & { user: { sub: string } },
     @UploadedFile() file: Express.Multer.File,
