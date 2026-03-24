@@ -70,6 +70,30 @@ export class WalletController {
   }
 
   /**
+   * POST /wallet/deposit/initialize
+   * Start a Paystack payment for a wallet deposit.
+   * Body: { amount: number }
+   */
+  @Post('deposit/initialize')
+  initializeDeposit(
+    @Body('amount') amount: number,
+    @Req() req: AuthenticatedRequest & { headers: Record<string, string> },
+  ) {
+    const origin = req.headers['origin'] ?? 'http://localhost:5173';
+    const callbackUrl = `${origin}/wallet?verify=1`;
+    return this.walletService.initializeDeposit(req.user.sub, Number(amount), callbackUrl);
+  }
+
+  /**
+   * GET /wallet/deposit/verify?reference=xxx
+   * Verify a completed Paystack deposit and credit wallet.
+   */
+  @Get('deposit/verify')
+  verifyDeposit(@Query('reference') reference: string) {
+    return this.walletService.verifyDeposit(reference);
+  }
+
+  /**
    * GET /wallet/history?type=deposit|deduction|refund&page=1&limit=20
    * Paginated list of the provider's wallet transactions.
    */

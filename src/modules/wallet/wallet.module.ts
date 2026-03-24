@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
@@ -9,12 +10,13 @@ import { CloudinaryModule } from 'src/shared/cloudinary/cloudinary.module';
 
 @Module({
   imports: [
+    ConfigModule,
     MongooseModule.forFeature([
       { name: WalletTransaction.name, schema: WalletTransactionSchema },
       { name: User.name, schema: UserSchema },
     ]),
-    UsersModule,       // needed by RolesGuard
-    CloudinaryModule,  // for proof image uploads
+    UsersModule,
+    CloudinaryModule,
   ],
   controllers: [WalletController],
   providers: [WalletService],

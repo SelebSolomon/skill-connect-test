@@ -4,7 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { ConfigService } from '@nestjs/config';
 import { Model, Types } from 'mongoose';
+import * as https from 'https';
 import {
   WalletTransaction,
   WalletTransactionDocument,
@@ -16,12 +18,46 @@ import { DepositRequestDto } from './dto/deposit-request.dto';
 
 @Injectable()
 export class WalletService {
+  private readonly paystackSecret: string;
+
   constructor(
     @InjectModel(WalletTransaction.name)
     private readonly walletTxModel: Model<WalletTransactionDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    this.paystackSecret = this.configService.get<string>('PAYSTACK_SECRET_KEY') ?? '';
+  }
+
+  private paystackRequest<T>(method: string, path: string, body?: Record<string, unknown>): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const data = body ? JSON.stringify(body) : undefined;
+      const req = https.request(
+        {
+          hostname: 'api.paystack.co',
+          port: 443,
+          path,
+          method,
+          headers: {
+            Authorization: `Bearer ${this.paystackSecret}`,
+            'Content-Type': 'application/json',
+            ...(data ? { 'Content-Length': Buffer.byteLength(data) } : {}),
+          },
+        },
+        (res) => {
+          let raw = '';
+          res.on('data', (chunk) => (raw += chunk));
+          res.on('end', () => {
+            try { resolve(JSON.parse(raw) as T); } catch { reject(new Error('Paystack: invalid JSON')); }
+          });
+        },
+      );
+      req.on('error', reject);
+      if (data) req.write(data);
+      req.end();
+    });
+  }
 
   /** Get current wallet balance + summary totals */
   async getWallet(userId: string) {
@@ -99,6 +135,74 @@ export class WalletService {
     ]);
 
     return { transactions, total, page, totalPages: Math.ceil(total / limit) };
+  }
+
+  // ─── Paystack deposit ────────────────────────────────────────────────────────
+
+  async initializeDeposit(userId: string, amount: number, callbackUrl: string) {
+    if (amount < 100) throw new BadRequestException('Minimum deposit is ₦100');
+
+    const user = await this.userModel.findById(userId).select('email');
+    if (!user) throw new NotFoundException('User not found');
+
+    const reference = `deposit_${userId}_${Date.now()}`;
+
+    // Create a pending deposit record first
+    const tx = await this.walletTxModel.create({
+      userId: new Types.ObjectId(userId),
+      type: WalletTransactionType.Deposit,
+      amount,
+      pendingReference: reference,
+      note: 'Paystack deposit',
+    });
+
+    const result = await this.paystackRequest<Record<string, unknown>>('POST', '/transaction/initialize', {
+      email: user.email,
+      amount: Math.round(amount * 100), // kobo
+      reference,
+      callback_url: callbackUrl,
+      metadata: { depositId: (tx as any)._id.toString(), userId },
+    });
+
+    if (!result.status) {
+      await this.walletTxModel.findByIdAndDelete((tx as any)._id);
+      throw new BadRequestException((result.message as string) ?? 'Paystack initialization failed');
+    }
+
+    const data = result.data as Record<string, unknown>;
+    return { paymentUrl: data.authorization_url as string, reference };
+  }
+
+  async verifyDeposit(reference: string) {
+    const result = await this.paystackRequest<Record<string, unknown>>(
+      'GET',
+      `/transaction/verify/${encodeURIComponent(reference)}`,
+    );
+
+    const data = result.data as Record<string, unknown> | undefined;
+    if (!result.status || data?.status !== 'success') {
+      throw new BadRequestException('Payment not successful or not found');
+    }
+
+    // Find the pending deposit by reference
+    const tx = await this.walletTxModel.findOne({ pendingReference: reference });
+    if (!tx) throw new NotFoundException('Deposit record not found');
+    if (tx.status === WalletTransactionStatus.Approved) {
+      return tx; // Already verified (idempotent)
+    }
+
+    tx.status = WalletTransactionStatus.Approved;
+    tx.paystackReference = reference;
+    tx.pendingReference = null;
+    tx.reviewedAt = new Date();
+    await tx.save();
+
+    // Credit the wallet
+    await this.userModel.findByIdAndUpdate(tx.userId, {
+      $inc: { walletBalance: tx.amount },
+    });
+
+    return tx;
   }
 
   // ─── Admin helpers ──────────────────────────────────────────────────────────

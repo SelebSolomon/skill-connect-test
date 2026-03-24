@@ -42,6 +42,14 @@ export class WalletTransaction {
   @Prop({ type: String, trim: true, default: null })
   note: string | null;
 
+  /** Paystack reference being initialized (idempotency guard) */
+  @Prop({ type: String, default: null })
+  pendingReference: string | null;
+
+  /** Confirmed Paystack reference after successful payment */
+  @Prop({ type: String, default: null })
+  paystackReference: string | null;
+
   /** Admin who approved or rejected this deposit */
   @Prop({ type: Types.ObjectId, ref: 'User', default: null })
   reviewedBy: Types.ObjectId | null;

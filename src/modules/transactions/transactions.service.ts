@@ -303,9 +303,9 @@ export class TransactionsService implements OnModuleInit {
     const [transactions, total] = await Promise.all([
       this.txModel
         .find(filter)
-        .populate('jobId', 'title')
-        .populate('providerId', 'name')
-        .populate('clientId', 'name')
+        .populate('jobId', 'title agreedPrice status')
+        .populate('providerId', 'name email')
+        .populate('clientId', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
