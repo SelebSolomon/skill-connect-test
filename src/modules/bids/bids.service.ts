@@ -70,7 +70,19 @@ export class BidsService {
       throw new BadRequestException('Cannot bid on a job that is not open');
     }
 
-    // Create and save the bid
+    // Check for an existing bid by this provider on this job
+    const existingBid = await this.bidModel.findOne({
+      jobId: new Types.ObjectId(jobId),
+      providerId: new Types.ObjectId(loggedInProvider),
+    });
+
+    if (existingBid) {
+      if (!existingBid.withdrawn) {
+        throw new ConflictException('You have already submitted a bid for this job');
+      }
+      // Previous bid was withdrawn — delete it so a fresh one can be created
+      await this.bidModel.deleteOne({ _id: existingBid._id });
+    }
 
     try {
       const bid = new this.bidModel({
@@ -96,14 +108,11 @@ export class BidsService {
 
       return saved;
     } catch (error) {
-      // ✅ DUPLICATE BID
       if (error?.code === 11000) {
-        throw new ConflictException(
-          'You have already submitted a bid for this job',
-        );
+        throw new ConflictException('You have already submitted a bid for this job');
       }
+      throw new InternalServerErrorException('Failed to submit bid');
     }
-    throw new InternalServerErrorException('Failed to submit bid');
   }
 
   async getMyBids(providerId: string) {
