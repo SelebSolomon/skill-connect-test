@@ -79,6 +79,9 @@ export class Bid {
 
 export const BidSchema = SchemaFactory.createForClass(Bid);
 
-BidSchema.index({ jobId: 1, providerId: 1 }, { unique: true });
+BidSchema.index(
+  { jobId: 1, providerId: 1 },
+  { unique: true, partialFilterExpression: { withdrawn: false } },
+);
 BidSchema.index({ clientId: 1, status: 1 });
 BidSchema.index({ providerId: 1, status: 1 });

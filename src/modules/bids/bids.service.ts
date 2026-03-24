@@ -44,7 +44,7 @@ export class BidsService {
 
   async findBidsForJob(jobId: string) {
     return await this.bidModel
-      .find({ jobId })
+      .find({ jobId, withdrawn: false })
       .populate({
         path: 'providerId',
         select: 'profile name', // only bring profile reference
@@ -218,7 +218,7 @@ export class BidsService {
 
     const updatedBid = await this.bidModel.findByIdAndUpdate(
       id,
-      { withdrawn: true },
+      { withdrawn: true, withdrawnAt: new Date(), status: BidStatus.WITHDRAWN },
       { new: true },
     );
     return updatedBid;
