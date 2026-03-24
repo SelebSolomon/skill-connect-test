@@ -41,6 +41,12 @@ export class MessagesService {
 
     return messages;
   }
+  async deleteByConversation(conversationId: string): Promise<void> {
+    await this.messageModel.deleteMany({
+      conversationId: new Types.ObjectId(conversationId),
+    });
+  }
+
   // ─── Send a message ───────────────────────────────────────────────────────
 
   async sendMessage(dto: CreateMessageDto, senderId: string) {

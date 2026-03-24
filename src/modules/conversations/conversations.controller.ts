@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -90,5 +91,15 @@ export class ConversationsController {
   @Patch(':id/read')
   markAllAsRead(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.conversationsService.markAllAsRead(id, req.user.sub);
+  }
+
+  /**
+   * DELETE /conversations/:id
+   * Permanently delete a conversation and all its messages.
+   */
+  @Delete(':id')
+  @HttpCode(HttpStatus.OK)
+  deleteConversation(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.conversationsService.deleteConversation(id, req.user.sub);
   }
 }

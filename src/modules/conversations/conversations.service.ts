@@ -234,6 +234,25 @@ export class ConversationsService {
     return { conversationId, unread: 0 };
   }
 
+  // ─── Delete a conversation (removes it for everyone) ─────────────────────
+
+  async deleteConversation(conversationId: string, userId: string) {
+    if (!isValidObjectId(conversationId)) {
+      throw new BadRequestException('Invalid conversation ID');
+    }
+
+    const conversation = await this.conversationModel.findById(conversationId);
+    if (!conversation) throw new NotFoundException('Conversation not found');
+
+    this.assertParticipant(conversation, userId);
+
+    await this.conversationModel.deleteOne({ _id: conversationId });
+    // Also delete all messages in the conversation
+    await this.messageService.deleteByConversation(conversationId);
+
+    return { message: 'Conversation deleted' };
+  }
+
   // ─── Private helper ───────────────────────────────────────────────────────
 
   private assertParticipant(
@@ -241,7 +260,7 @@ export class ConversationsService {
     userId: string,
   ) {
     const ok = conversation.participants.some(
-      (p) => p.userId._id.toString() === userId.toString(),
+      (p) => p.userId.toString() === userId.toString(),
     );
 
     if (!ok) {
