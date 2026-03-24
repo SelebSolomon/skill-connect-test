@@ -74,3 +74,4 @@ export const ProfileSchema = SchemaFactory.createForClass(Profile);
 
 ProfileSchema.index({ categories: 1, 'location.city': 1 });
 ProfileSchema.index({ services: 1 });
+ProfileSchema.index({ 'location.coordinates': '2dsphere' });

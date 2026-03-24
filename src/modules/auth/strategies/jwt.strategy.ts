@@ -20,7 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: JwtPayload) {
     const user = await this.usersService.findById(payload.sub);
-    if (!user || !user.isActive) return null;
+    if (!user || !user.isActive || user.banned) return null;
     return { sub: payload.sub, role: payload.role };
   }
 }

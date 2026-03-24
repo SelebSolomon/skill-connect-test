@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   Logger,
@@ -201,6 +202,10 @@ export class AuthService {
 
     if (!isMatch) {
       throw new NotFoundException('Invalid Credentials');
+    }
+
+    if (existingUser.banned) {
+      throw new ForbiddenException('Your account has been banned. Please contact support.');
     }
 
     if (!existingUser.isActive || !existingUser.emailVerified) {

@@ -7,12 +7,14 @@ import { TransformResponseInterceptor } from './core/interceptors/reponse.interc
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { GlobalExceptionFilter } from './core/filter/http-exception.filters';
 import { corsOriginFn } from './core/config/cors.config';
+import helmet from 'helmet';
 
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true, // needed for Paystack webhook HMAC verification
   });
+  app.use(helmet());
   app.enableCors({
     origin: corsOriginFn,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',

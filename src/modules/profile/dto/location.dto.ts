@@ -4,7 +4,15 @@ import { IsOptional, IsString, IsNumber } from 'class-validator';
 export class LocationDto {
   @IsOptional()
   @IsString()
+  street?: string;
+
+  @IsOptional()
+  @IsString()
   city?: string;
+
+  @IsOptional()
+  @IsString()
+  state?: string;
 
   @IsOptional()
   @IsString()

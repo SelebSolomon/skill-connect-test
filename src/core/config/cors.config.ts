@@ -22,8 +22,12 @@ export function getCorsOrigins(): string[] {
 }
 
 export function corsOriginFn(origin: string | undefined, callback: CorsCallback) {
-  // Allow non-browser clients (Postman, curl) with no Origin header
-  if (!origin) return callback(null, true);
+  // In production, reject requests with no Origin header to block non-browser clients
+  if (!origin) {
+    const isProd = process.env.NODE_ENV === 'production';
+    if (isProd) return callback(new Error('Origin header required'), false);
+    return callback(null, true);
+  }
 
   const allowed = getCorsOrigins();
   if (allowed.includes(origin)) return callback(null, true);

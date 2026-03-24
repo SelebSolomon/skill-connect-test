@@ -195,7 +195,7 @@ export class BidsService {
     // Update allowed fields
     const updatedBid = await this.bidModel.findByIdAndUpdate(
       id,
-      { $set: updateBidDto },
+      { $set: updateData },
       { new: true },
     );
     return updatedBid;

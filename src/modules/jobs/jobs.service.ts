@@ -265,7 +265,7 @@ export class JobsService {
       );
     }
 
-    this.jobModel.findByIdAndUpdate(
+    await this.jobModel.findByIdAndUpdate(
       id,
       {
         $set: {

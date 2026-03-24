@@ -35,6 +35,7 @@ import { SettingsModule } from './settings/settings.module';
     }),
     ThrottlerModule.forRoot([
       {
+        
         name: 'default',
         ttl: 60_000,
         limit: 60,

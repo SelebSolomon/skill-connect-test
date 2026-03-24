@@ -15,6 +15,7 @@ import { PortfolioItemDto } from './dto/portfolio.dto';
 import { ServicesService } from '../services/services.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { QueryProfilesDto } from './dto/query.dto';
+import { LocationDto } from './dto/location.dto';
 
 @Injectable()
 export class ProfileService {
@@ -59,15 +60,10 @@ private logger = new Logger(ProfileService.name);
       files?.portfolioImages || [],
     );
 
-    // Location validation
-    if (createProfileDto.location) {
-      const { lat, lng } = createProfileDto.location;
-      if ((lat && !lng) || (!lat && lng)) {
-        throw new BadRequestException(
-          'Both latitude and longitude must be provided together',
-        );
-      }
-    }
+    // Location
+    const location = createProfileDto.location
+      ? this.buildLocationData(createProfileDto.location)
+      : undefined;
 
     // Validate and get service categories
     let categories: string[] = [];
@@ -90,7 +86,7 @@ private logger = new Logger(ProfileService.name);
       skills: createProfileDto.skills || [],
       services: validatedServices,
       categories, // Auto-extracted from services
-      location: createProfileDto.location,
+      location,
       portfolio,
       photoUrl: photoUrl || createProfileDto.photoUrl,
       photoPublicId: photoPublicId || createProfileDto.photoPublicId,
@@ -308,14 +304,9 @@ private logger = new Logger(ProfileService.name);
       updateProfileDto['categories'] = result.categories;
     }
 
-    // Location validation
+    // Location
     if (updateProfileDto.location) {
-      const { lat, lng } = updateProfileDto.location;
-      if ((lat && !lng) || (!lat && lng)) {
-        throw new BadRequestException(
-          'Both latitude and longitude must be provided together',
-        );
-      }
+      updateProfileDto['location'] = this.buildLocationData(updateProfileDto.location);
     }
 
     // Update profile
@@ -448,54 +439,102 @@ private logger = new Logger(ProfileService.name);
     await this.profileModel.findOneAndUpdate({ userId }, { ratingAvg, ratingCount });
   }
 
+  private buildLocationData(locationDto: LocationDto) {
+    const { lat, lng, street, city, state, country } = locationDto;
+
+    if ((lat !== undefined && lng === undefined) || (lng !== undefined && lat === undefined)) {
+      throw new BadRequestException('Both lat and lng must be provided together');
+    }
+
+    return {
+      ...(street && { street }),
+      ...(city && { city }),
+      ...(state && { state }),
+      ...(country && { country }),
+      ...(lat !== undefined && lng !== undefined && {
+        coordinates: {
+          type: 'Point' as const,
+          coordinates: [lng, lat] as [number, number],
+        },
+      }),
+    };
+  }
+
   async queryProfiles(queryDto: QueryProfilesDto) {
-  const {
-    category,
-    serviceId,
-    city,
-    skill,
-    minRate,
-    maxRate,
-    minRating,
-    verified,
-  } = queryDto;
+    const {
+      category,
+      serviceId,
+      city,
+      skill,
+      minRate,
+      maxRate,
+      minRating,
+      verified,
+      lat,
+      lng,
+      radius = 50,
+    } = queryDto;
 
-  const query: any = {};
+    const query: any = {};
 
-  // Always default to verified true unless explicitly provided
-  // query.verified = verified ?? true;
+    if (category) query.categories = category;
+    if (serviceId) query.services = serviceId;
+    if (skill) query.skills = { $in: [new RegExp(skill, 'i')] };
+    if (verified !== undefined) query.verified = verified;
 
-  if (category) {
-    query.categories = category;
+    if (minRate || maxRate) {
+      query.rate = {};
+      if (minRate) query.rate.$gte = minRate;
+      if (maxRate) query.rate.$lte = maxRate;
+    }
+
+    if (minRating) query.ratingAvg = { $gte: minRating };
+
+    // Geo search — use aggregation to get distance back
+    if (lat !== undefined && lng !== undefined) {
+      return this.profileModel.aggregate([
+        {
+          $geoNear: {
+            near: { type: 'Point', coordinates: [lng, lat] },
+            distanceField: 'distanceMeters',
+            maxDistance: radius * 1000,
+            spherical: true,
+            query,
+          },
+        },
+        {
+          $addFields: {
+            distanceKm: { $round: [{ $divide: ['$distanceMeters', 1000] }, 1] },
+          },
+        },
+        {
+          $lookup: {
+            from: 'services',
+            localField: 'services',
+            foreignField: '_id',
+            as: 'services',
+            pipeline: [{ $project: { name: 1, category: 1, slug: 1 } }],
+          },
+        },
+        {
+          $project: {
+            __v: 0,
+            createdAt: 0,
+            updatedAt: 0,
+            distanceMeters: 0,
+          },
+        },
+      ]);
+    }
+
+    // City text search fallback
+    if (city) query['location.city'] = new RegExp(city, 'i');
+
+    return this.profileModel
+      .find(query)
+      .populate('services', 'name category slug')
+      .sort({ ratingAvg: -1, ratingCount: -1 })
+      .select('-__v -createdAt -updatedAt');
   }
-
-  if (serviceId) {
-    query.services = serviceId;
-  }
-
-  if (city) {
-    query['location.city'] = new RegExp(city, 'i');
-  }
-
-  if (skill) {
-    query.skills = { $in: [new RegExp(skill, 'i')] };
-  }
-
-  if (minRate || maxRate) {
-    query.rate = {};
-    if (minRate) query.rate.$gte = minRate;
-    if (maxRate) query.rate.$lte = maxRate;
-  }
-
-  if (minRating) {
-    query.ratingAvg = { $gte: minRating };
-  }
-
-  return this.profileModel
-    .find(query)
-    .populate('services', 'name category slug')
-    .sort({ ratingAvg: -1, ratingCount: -1 })
-    .select('-__v -createdAt -updatedAt');
-}
 
 }
