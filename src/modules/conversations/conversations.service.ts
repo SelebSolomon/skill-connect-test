@@ -72,8 +72,13 @@ export class ConversationsService {
     // Return existing conversation if one already exists
     const existing = await this.conversationModel
       .findOne({
-        'participants.userId': { $all: [currentUserId, recipientId] },
-        jobId: jobId ?? null,
+        'participants.userId': {
+          $all: [
+            new Types.ObjectId(currentUserId),
+            new Types.ObjectId(recipientId),
+          ],
+        },
+        jobId: jobId ? new Types.ObjectId(jobId as unknown as string) : null,
       })
       .populate({
         path: 'participants.userId',
