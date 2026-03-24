@@ -42,6 +42,32 @@ export class BidsService {
       .lean();
   }
 
+  /** Hard-delete all bids for a job (called when the job itself is deleted) */
+  async deleteByJob(jobId: string): Promise<void> {
+    await this.bidModel.deleteMany({ jobId: new Types.ObjectId(jobId) });
+  }
+
+  /** Mark the assigned provider's bid as accepted */
+  async markBidAccepted(providerId: string, jobId: string): Promise<void> {
+    await this.bidModel.updateOne(
+      { jobId: new Types.ObjectId(jobId), providerId: new Types.ObjectId(providerId), withdrawn: false },
+      { $set: { status: BidStatus.ACCEPTED, acceptedAt: new Date() } },
+    );
+  }
+
+  /** Reject all other pending bids for a job once a provider is assigned */
+  async rejectOtherBids(jobId: string, acceptedProviderId: string): Promise<void> {
+    await this.bidModel.updateMany(
+      {
+        jobId: new Types.ObjectId(jobId),
+        providerId: { $ne: new Types.ObjectId(acceptedProviderId) },
+        withdrawn: false,
+        status: BidStatus.PENDING,
+      },
+      { $set: { status: BidStatus.REJECTED, rejectedAt: new Date() } },
+    );
+  }
+
   async findBidsForJob(jobId: string) {
     return await this.bidModel
       .find({ jobId, withdrawn: false })
@@ -77,10 +103,11 @@ export class BidsService {
     });
 
     if (existingBid) {
-      if (!existingBid.withdrawn) {
+      // Only block re-bid if there's an explicitly active (not withdrawn) pending bid
+      if (existingBid.withdrawn === false && existingBid.status === BidStatus.PENDING) {
         throw new ConflictException('You have already submitted a bid for this job');
       }
-      // Previous bid was withdrawn — delete it so a fresh one can be created
+      // Previous bid was withdrawn or in a non-active state — delete it so a fresh one can be created
       await this.bidModel.deleteOne({ _id: existingBid._id });
     }
 

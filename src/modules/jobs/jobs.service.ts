@@ -281,6 +281,9 @@ export class JobsService {
       { new: true },
     );
 
+    // Remove all bids for this job so providers are not blocked from bidding elsewhere
+    await this.bidsService.deleteByJob(id);
+
     return { message: 'Job deleted successfully' };
   }
 
@@ -327,6 +330,10 @@ export class JobsService {
     if (!job) {
       throw new BadRequestException('Job already assigned or not found');
     }
+
+    // Update bid statuses — mark winner as accepted, reject the rest
+    await this.bidsService.markBidAccepted(providerId, id);
+    await this.bidsService.rejectOtherBids(id, providerId);
 
     this.notificationsService
       .send({
