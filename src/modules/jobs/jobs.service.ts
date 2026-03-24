@@ -117,9 +117,13 @@ export class JobsService {
       milestones: parsedMilestones,
     });
 
-    // Notify providers who offer this service (fire-and-forget)
+    // Notify providers who match by service, category, or nearby city (fire-and-forget)
+    const city = createJobDto.jobLocation?.split(',')[0]?.trim();
     this.profileService
-      .findProvidersByService(createJobDto.serviceId)
+      .findProvidersByService(createJobDto.serviceId, {
+        category: service.category,
+        city,
+      })
       .then((providerIds) => {
         const targets = providerIds.filter((id) => id !== loggedInClientId);
         return this.notificationsService.sendToMany(targets, {

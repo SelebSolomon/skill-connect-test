@@ -415,17 +415,42 @@ private logger = new Logger(ProfileService.name);
   }
 
   /**
-   * Used by NotificationsService trigger in JobsService:
-   * returns the userId of providers who list this service in their profile.
-   * Capped at 50 to avoid flooding.
+   * Used by JobsService after a job is posted.
+   * Returns unique userIds of providers who match by:
+   *   1. Exact serviceId (highest relevance)
+   *   2. Same service category (e.g. "Web Design" → all "Technology" providers)
+   *   3. Same city as the job location (nearby providers)
+   *
+   * Results are deduplicated. Capped at 200 to avoid bulk-notification abuse.
    */
-  async findProvidersByService(serviceId: string): Promise<string[]> {
+  async findProvidersByService(
+    serviceId: string,
+    options: { category?: string; city?: string } = {},
+  ): Promise<string[]> {
+    const { category, city } = options;
+
+    const clauses: Record<string, unknown>[] = [{ services: serviceId }];
+
+    if (category) {
+      clauses.push({ categories: category });
+    }
+
+    if (city) {
+      clauses.push({ 'location.city': new RegExp(city.trim(), 'i') });
+    }
+
     const profiles = await this.profileModel
-      .find({ services: serviceId })
+      .find({ $or: clauses })
       .select('userId')
-      .limit(50)
+      .limit(200)
       .lean();
-    return profiles.map((p) => p.userId.toString());
+
+    // Deduplicate in case a provider matches multiple clauses
+    const seen = new Set<string>();
+    for (const p of profiles) {
+      seen.add(p.userId.toString());
+    }
+    return [...seen];
   }
 
   /**

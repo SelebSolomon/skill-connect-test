@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { CreateMessageDto } from './dto/create-message.dto';
+import { SendOfferDto } from './dto/send-offer.dto';
 import { JwtGuards } from 'src/core/guards/jwt-guards';
 import { JwtPayload } from 'src/common/interface/jwt-payload';
 
@@ -51,5 +52,32 @@ export class MessagesController {
   @Patch(':id/read')
   markAsRead(@Req() req: AuthRequest, @Param('id') id: string) {
     return this.messagesService.markMessageAsRead(id, req.user.sub);
+  }
+
+  /**
+   * POST /messages/offer
+   * Provider sends a formal price offer inside a conversation.
+   */
+  @Post('offer')
+  sendOffer(@Req() req: AuthRequest, @Body() dto: SendOfferDto) {
+    return this.messagesService.sendOffer(dto, req.user.sub);
+  }
+
+  /**
+   * PATCH /messages/:id/accept-offer
+   * Client accepts the provider's offer — creates an in_progress job automatically.
+   */
+  @Patch(':id/accept-offer')
+  acceptOffer(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.messagesService.acceptOffer(id, req.user.sub);
+  }
+
+  /**
+   * PATCH /messages/:id/decline-offer
+   * Either party can decline a pending offer.
+   */
+  @Patch(':id/decline-offer')
+  declineOffer(@Req() req: AuthRequest, @Param('id') id: string) {
+    return this.messagesService.declineOffer(id, req.user.sub);
   }
 }
