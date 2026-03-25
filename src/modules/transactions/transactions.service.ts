@@ -19,6 +19,13 @@ import {
   COMMISSION_RATE,
 } from './schema/transaction.schema';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
+import {
+  WalletTransaction,
+  WalletTransactionDocument,
+  WalletTransactionStatus,
+  WalletTransactionType,
+} from '../wallet/schema/wallet-transaction.schema';
+import { User, UserDocument } from '../users/schema/user.schema';
 
 @Injectable()
 export class TransactionsService implements OnModuleInit {
@@ -28,6 +35,10 @@ export class TransactionsService implements OnModuleInit {
   constructor(
     @InjectModel(Transaction.name)
     private readonly txModel: Model<TransactionDocument>,
+    @InjectModel(WalletTransaction.name)
+    private readonly walletTxModel: Model<WalletTransactionDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
     private readonly configService: ConfigService,
   ) {
     this.paystackSecret = this.configService.get<string>('PAYSTACK_SECRET_KEY') ?? '';
@@ -374,12 +385,30 @@ export class TransactionsService implements OnModuleInit {
     tx.status = TransactionStatus.Paid;
     tx.paidAt = new Date();
     tx.paymentReference = paymentReference ?? null;
-    tx.pendingReference = null; // clear idempotency lock
-    // Store which admin manually marked it paid (null = Paystack auto-payment)
+    tx.pendingReference = null;
     tx.paidBy = adminId && Types.ObjectId.isValid(adminId)
       ? new Types.ObjectId(adminId)
       : null;
     await tx.save();
+
+    // Deduct commission from provider's wallet balance
+    await Promise.all([
+      this.userModel.findByIdAndUpdate(tx.providerId, {
+        $inc: { walletBalance: -tx.commissionAmount },
+      }),
+      this.walletTxModel.create({
+        userId: tx.providerId,
+        type: WalletTransactionType.Deduction,
+        amount: tx.commissionAmount,
+        status: WalletTransactionStatus.Approved,
+        note: `Commission deducted for job #${tx.jobId}`,
+        reviewedAt: new Date(),
+        ...(adminId && Types.ObjectId.isValid(adminId)
+          ? { reviewedBy: new Types.ObjectId(adminId) }
+          : {}),
+      }),
+    ]);
+
     return tx;
   }
 
@@ -402,8 +431,20 @@ export class TransactionsService implements OnModuleInit {
     tx.waivedAt = new Date();
     tx.waivedBy = new Types.ObjectId(adminId);
     tx.waivedReason = reason ?? null;
-    tx.pendingReference = null; // clear any pending payment lock
+    tx.pendingReference = null;
     await tx.save();
+
+    // Log a waived entry in wallet history so the provider sees the debt was forgiven
+    await this.walletTxModel.create({
+      userId: tx.providerId,
+      type: WalletTransactionType.Deduction,
+      amount: 0,
+      status: WalletTransactionStatus.Approved,
+      note: `Commission waived for job #${tx.jobId}${reason ? `: ${reason}` : ''}`,
+      reviewedBy: new Types.ObjectId(adminId),
+      reviewedAt: new Date(),
+    });
+
     return tx;
   }
 }
