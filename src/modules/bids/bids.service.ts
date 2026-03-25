@@ -93,7 +93,6 @@ export class BidsService {
   async submitBid(createBidDto: CreateBidDto, loggedInProvider: string) {
     const { jobId, proposedPrice, estimatedDuration, message } = createBidDto;
 
-    // Validate job existence and status
     const job = await this.jobService.findById(jobId);
     if (!job) {
       throw new BadRequestException('Job not found');
@@ -103,24 +102,21 @@ export class BidsService {
       throw new BadRequestException('Cannot bid on a job that is not open');
     }
 
-    // Check for an existing bid by this provider on this job
-    const existingBid = await this.bidModel.findOne({
+    // Only block if there is an active (non-withdrawn) bid from this provider.
+    // Withdrawn bids have providerId set to null, so they are invisible to this
+    // query and do not block re-bidding. The partial unique index
+    // ({ jobId, providerId }, partialFilterExpression: { withdrawn: false })
+    // ensures no duplicate active bids at the DB level as well.
+    const activeBid = await this.bidModel.findOne({
       jobId: new Types.ObjectId(jobId),
       providerId: new Types.ObjectId(loggedInProvider),
+      withdrawn: false,
     });
 
-    if (existingBid) {
-      // Only block re-bid if there's an explicitly active (not withdrawn) pending bid
-      if (
-        existingBid.withdrawn === false &&
-        existingBid.status === BidStatus.PENDING
-      ) {
-        throw new ConflictException(
-          'You have already submitted a bid for this job',
-        );
-      }
-      // Previous bid was withdrawn or in a non-active state — delete it so a fresh one can be created
-      await this.bidModel.deleteOne({ _id: existingBid._id });
+    if (activeBid) {
+      throw new ConflictException(
+        'You have already submitted a bid for this job',
+      );
     }
 
     try {
@@ -134,7 +130,7 @@ export class BidsService {
       });
       const saved = await bid.save();
 
-      // Notify the client that a new bid arrived (fire-and-forget)
+      // Notify the client (fire-and-forget)
       this.notificationsService
         .send({
           userId: job.clientId.toString(),
@@ -266,16 +262,33 @@ export class BidsService {
       );
     }
 
-    const updatedBid = await this.bidModel.findByIdAndUpdate(
-      id,
-      {
-        withdrawn: true,
-        withdrawnAt: new Date(),
-        status: BidStatus.WITHDRAWN,
-        providerId: null,
-      },
-      { new: true },
-    );
+    const [updatedBid, job] = await Promise.all([
+      this.bidModel.findByIdAndUpdate(
+        id,
+        {
+          withdrawn: true,
+          withdrawnAt: new Date(),
+          status: BidStatus.WITHDRAWN,
+          providerId: null,
+        },
+        { new: true },
+      ),
+      this.jobService.findById(bid.jobId.toString()),
+    ]);
+
+    // Notify the client that the provider withdrew their bid (fire-and-forget)
+    if (job) {
+      this.notificationsService
+        .send({
+          userId: job.clientId.toString(),
+          type: NotificationType.Bid,
+          title: 'Bid Withdrawn',
+          message: `A provider has withdrawn their bid on your job: "${job.title}"`,
+          link: `/jobs/${bid.jobId}/bids`,
+        })
+        .catch(() => null);
+    }
+
     return updatedBid;
   }
 }
