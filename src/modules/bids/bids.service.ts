@@ -262,32 +262,32 @@ export class BidsService {
       );
     }
 
-    const [updatedBid, job] = await Promise.all([
-      this.bidModel.findByIdAndUpdate(
-        id,
-        {
-          withdrawn: true,
-          withdrawnAt: new Date(),
-          status: BidStatus.WITHDRAWN,
-          providerId: null,
-        },
-        { new: true },
-      ),
-      this.jobService.findById(bid.jobId.toString()),
-    ]);
+    const updatedBid = await this.bidModel.findByIdAndUpdate(
+      id,
+      {
+        withdrawn: true,
+        withdrawnAt: new Date(),
+        status: BidStatus.WITHDRAWN,
+        providerId: null,
+      },
+      { new: true },
+    );
 
-    // Notify the client that the provider withdrew their bid (fire-and-forget)
-    if (job) {
-      this.notificationsService
-        .send({
-          userId: job.clientId.toString(),
-          type: NotificationType.Bid,
-          title: 'Bid Withdrawn',
-          message: `A provider has withdrawn their bid on your job: "${job.title}"`,
-          link: `/jobs/${bid.jobId}/bids`,
-        })
-        .catch(() => null);
-    }
+    // Notify the client — fully fire-and-forget so it never blocks or fails the withdrawal
+    this.jobService
+      .findById(bid.jobId.toString())
+      .then((job) => {
+        this.notificationsService
+          .send({
+            userId: job.clientId.toString(),
+            type: NotificationType.Bid,
+            title: 'Bid Withdrawn',
+            message: `A provider has withdrawn their bid on your job: "${job.title}"`,
+            link: `/jobs/${bid.jobId}/bids`,
+          })
+          .catch(() => null);
+      })
+      .catch(() => null);
 
     return updatedBid;
   }

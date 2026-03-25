@@ -311,7 +311,7 @@ export class JobsService {
           _id: id,
           clientId: loggedInUser,
           status: Status.open,
-          providerId: { $exists: false },
+          providerId: null,
         },
         {
           $set: {
