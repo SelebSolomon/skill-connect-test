@@ -78,13 +78,21 @@ export class AdminService {
       this.userModel
         .find(query)
         .select('-password -refreshToken -passwordResetToken -emailVerificationToken')
+        .populate({ path: 'profile', select: 'verified' })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit),
       this.userModel.countDocuments(query),
     ]);
 
-    return { users, total, page, totalPages: Math.ceil(total / limit) };
+    // Flatten profile.verified → isVerified for a clean API response
+    const usersWithVerified = users.map((u) => {
+      const obj = u.toObject() as Record<string, any>;
+      obj.isVerified = obj.profile?.verified ?? false;
+      return obj;
+    });
+
+    return { users: usersWithVerified, total, page, totalPages: Math.ceil(total / limit) };
   }
 
   /** Get one user's full details */
