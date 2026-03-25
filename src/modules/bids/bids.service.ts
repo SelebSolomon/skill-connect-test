@@ -217,7 +217,7 @@ export class BidsService {
 
     const allowedFields = ['proposedPrice', 'estimatedDuration', 'message'];
     const sentFields = Object.keys(updateBidDto);
-
+// 
     // Validate that only allowed fields are sent
     for (const field of sentFields) {
       if (!allowedFields.includes(field)) {
