@@ -50,13 +50,20 @@ export class BidsService {
   /** Mark the assigned provider's bid as accepted */
   async markBidAccepted(providerId: string, jobId: string): Promise<void> {
     await this.bidModel.updateOne(
-      { jobId: new Types.ObjectId(jobId), providerId: new Types.ObjectId(providerId), withdrawn: false },
+      {
+        jobId: new Types.ObjectId(jobId),
+        providerId: new Types.ObjectId(providerId),
+        withdrawn: false,
+      },
       { $set: { status: BidStatus.ACCEPTED, acceptedAt: new Date() } },
     );
   }
 
   /** Reject all other pending bids for a job once a provider is assigned */
-  async rejectOtherBids(jobId: string, acceptedProviderId: string): Promise<void> {
+  async rejectOtherBids(
+    jobId: string,
+    acceptedProviderId: string,
+  ): Promise<void> {
     await this.bidModel.updateMany(
       {
         jobId: new Types.ObjectId(jobId),
@@ -104,8 +111,13 @@ export class BidsService {
 
     if (existingBid) {
       // Only block re-bid if there's an explicitly active (not withdrawn) pending bid
-      if (existingBid.withdrawn === false && existingBid.status === BidStatus.PENDING) {
-        throw new ConflictException('You have already submitted a bid for this job');
+      if (
+        existingBid.withdrawn === false &&
+        existingBid.status === BidStatus.PENDING
+      ) {
+        throw new ConflictException(
+          'You have already submitted a bid for this job',
+        );
       }
       // Previous bid was withdrawn or in a non-active state — delete it so a fresh one can be created
       await this.bidModel.deleteOne({ _id: existingBid._id });
@@ -136,7 +148,9 @@ export class BidsService {
       return saved;
     } catch (error) {
       if (error?.code === 11000) {
-        throw new ConflictException('You have already submitted a bid for this job');
+        throw new ConflictException(
+          'You have already submitted a bid for this job',
+        );
       }
       throw new InternalServerErrorException('Failed to submit bid');
     }
@@ -254,7 +268,12 @@ export class BidsService {
 
     const updatedBid = await this.bidModel.findByIdAndUpdate(
       id,
-      { withdrawn: true, withdrawnAt: new Date(), status: BidStatus.WITHDRAWN },
+      {
+        withdrawn: true,
+        withdrawnAt: new Date(),
+        status: BidStatus.WITHDRAWN,
+        providerId: null,
+      },
       { new: true },
     );
     return updatedBid;
